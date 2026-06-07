@@ -16,6 +16,7 @@ ROOT = Path(__file__).parent.parent
 DEFAULT_ADMIN_DATA = ROOT / "admin_sample_data.json"
 LOOKBACK_DAYS = 30
 PLATFORMS = ("facebook", "instagram", "twitter", "linkedin")
+DEFAULT_EXCLUDED_ADMIN_EMAILS = ("sarfaraz@orkyst.com", "moazzam@orkyst.com")
 
 
 def load_admin_source(
@@ -49,7 +50,7 @@ def build_admin_stats(
         return _with_admin_defaults(source)
 
     source_label = source.get("source") or ("live" if os.getenv("ORKYST_ADMIN_STATS_URL") else "sample")
-    users = source.get("users", [])
+    users = _without_excluded_admins(source.get("users", []))
     calendars = source.get("calendars", [])
     events = source.get("events", [])
     now = datetime.now(timezone.utc)
@@ -277,6 +278,12 @@ def _event_stats(events: list[dict[str, Any]]) -> dict[str, int]:
 
 def _with_admin_defaults(source: dict[str, Any]) -> dict[str, Any]:
     activity_totals = source.get("activityTotals") or {}
+    recent_activity = [
+        item
+        for item in source.get("recentActivity", [])
+        if not _is_excluded_admin_email(item.get("email"))
+    ]
+    recent_users = _without_excluded_admins(source.get("recentUsers", []))
     return {
         **source,
         "eventStatusBreakdown": source.get("eventStatusBreakdown", []),
@@ -297,7 +304,8 @@ def _with_admin_defaults(source: dict[str, Any]) -> dict[str, Any]:
                 "failedEvents": 0,
             },
         ),
-        "recentActivity": source.get("recentActivity", []),
+        "recentActivity": recent_activity,
+        "recentUsers": recent_users,
     }
 
 
@@ -353,10 +361,28 @@ def _recent_activity(
         )
 
     return sorted(
-        [item for item in activity if _parse_date(item.get("createdAt"))],
+        [
+            item
+            for item in activity
+            if _parse_date(item.get("createdAt")) and not _is_excluded_admin_email(item.get("email"))
+        ],
         key=lambda item: _parse_date(item.get("createdAt")) or datetime.min.replace(tzinfo=timezone.utc),
         reverse=True,
     )[:18]
+
+
+def _without_excluded_admins(users: list[dict[str, Any]]) -> list[dict[str, Any]]:
+    return [user for user in users if not _is_excluded_admin_email(user.get("email"))]
+
+
+def _is_excluded_admin_email(email: Any) -> bool:
+    return str(email or "").strip().lower() in _excluded_admin_emails()
+
+
+def _excluded_admin_emails() -> set[str]:
+    configured = os.getenv("ADMIN_STATS_EXCLUDED_EMAILS")
+    emails = configured.split(",") if configured else DEFAULT_EXCLUDED_ADMIN_EMAILS
+    return {email.strip().lower() for email in emails if email.strip()}
 
 
 def _percent(value: int, total: int) -> float:
