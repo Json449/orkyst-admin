@@ -36,6 +36,15 @@ from api.admin_auth import (
 
 INPUT_DATA = ROOT / "dummy_input_data.json"
 AUTH_COOKIE_NAME = "graph_admin_session"
+DEFAULT_CORS_ORIGINS = [
+    "https://admin-app.orkyst.com",
+    "http://localhost:3000",
+    "http://localhost:3001",
+    "http://localhost:3002",
+    "http://localhost:3003",
+    "http://127.0.0.1:3002",
+    "http://127.0.0.1:3003",
+]
 
 PLATFORM_COLORS = {
     "linkedin": "#0A66C2",
@@ -47,16 +56,15 @@ PLATFORM_COLORS = {
 app = FastAPI(title="Orkyst Analytics API")
 ensure_admin_db()
 
+cors_origins = [
+    origin.strip()
+    for origin in os.getenv("GRAPH_API_CORS_ORIGINS", "").split(",")
+    if origin.strip()
+] or DEFAULT_CORS_ORIGINS
+
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=[
-        "http://localhost:3000",
-        "http://localhost:3001",
-        "http://localhost:3002",
-        "http://localhost:3003",
-        "http://127.0.0.1:3002",
-        "http://127.0.0.1:3003",
-    ],
+    allow_origins=cors_origins,
     allow_methods=["GET", "POST"],
     allow_headers=["*"],
     allow_credentials=True,

@@ -1,4 +1,7 @@
 neo4j-graphrag[experimental]
+fastapi
+uvicorn[standard]
+pydantic
 google-generativeai
 sentence-transformers
 streamlit
