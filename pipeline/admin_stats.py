@@ -23,16 +23,16 @@ def load_admin_source(
     auth_token: str | None = None,
 ) -> dict[str, Any]:
     """Load live admin data when configured, otherwise use local sample data."""
-    mongo_uri = _orkyst_mongo_uri()
-    if mongo_uri:
-        return _load_from_mongo(mongo_uri)
-
     live_url = os.getenv("ORKYST_ADMIN_STATS_URL")
     if live_url:
         try:
             return _load_from_url(live_url, auth_token=auth_token)
         except URLError as exc:
             raise RuntimeError(f"Failed to load ORKYST_ADMIN_STATS_URL: {exc}") from exc
+
+    mongo_uri = _orkyst_mongo_uri()
+    if mongo_uri:
+        return _load_from_mongo(mongo_uri)
 
     path = Path(json_path)
     return json.loads(path.read_text())
