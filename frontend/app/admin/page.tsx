@@ -2,6 +2,7 @@
 
 import { useEffect, useMemo, useState } from "react";
 import Link from "next/link";
+import { useRouter } from "next/navigation";
 import {
   Activity,
   BarChart3,
@@ -10,6 +11,8 @@ import {
   Clock3,
   ImageIcon,
   LayoutDashboard,
+  LogOut,
+  MousePointer2,
   PlaySquare,
   ShieldCheck,
   Users,
@@ -18,15 +21,23 @@ import {
   Bar,
   BarChart,
   CartesianGrid,
+  LabelList,
+  Cell,
+  Pie,
+  PieChart,
   ResponsiveContainer,
   Tooltip,
   XAxis,
   YAxis,
 } from "recharts";
 import { OrkystLogo } from "@/components/orkyst-logo";
+import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
+import { OrkystLoader } from "@/components/ui/orkyst-loader";
 import { Skeleton } from "@/components/ui/skeleton";
-import { fetchAdminUserStats, type AdminUserStatsData } from "@/lib/api";
+import { fetchAdminUserStats, logout, type AdminUserStatsData } from "@/lib/api";
 
 const formatDate = (value?: string) => {
   if (!value) return "Never";
@@ -39,6 +50,26 @@ const formatDate = (value?: string) => {
 
 const label = (value: string) =>
   value.replace(/_/g, " ").replace(/\b\w/g, (char) => char.toUpperCase());
+
+const toDateInputValue = (value?: string) => {
+  if (!value) return "";
+  return value.slice(0, 10);
+};
+
+const formatAxisDate = (value: string) =>
+  new Intl.DateTimeFormat("en", {
+    month: "short",
+    day: "numeric",
+  }).format(new Date(value));
+
+const ACTIVITY_COLORS = ["#6B2D5B", "#0F766E", "#2563EB", "#C2410C", "#7C3AED"];
+
+const activityIcon = (kind: string) => {
+  if (kind === "user_signup") return Users;
+  if (kind === "calendar_created") return CalendarDays;
+  if (kind === "event_created") return MousePointer2;
+  return Activity;
+};
 
 function MetricCard({
   title,
@@ -64,6 +95,134 @@ function MetricCard({
           </div>
         </div>
         <p className="mt-3 text-sm text-muted-foreground">{helper}</p>
+      </CardContent>
+    </Card>
+  );
+}
+
+function SignupFrequencyChart({
+  data,
+}: {
+  data: Array<{ date: string; count: number }>;
+}) {
+  const [startDate, setStartDate] = useState("");
+  const [endDate, setEndDate] = useState("");
+  const minDate = toDateInputValue(data[0]?.date);
+  const maxDate = toDateInputValue(data[data.length - 1]?.date);
+
+  const filteredData = useMemo(() => {
+    return data.filter((item) => {
+      const day = toDateInputValue(item.date);
+      if (startDate && day < startDate) return false;
+      if (endDate && day > endDate) return false;
+      return true;
+    });
+  }, [data, endDate, startDate]);
+
+  return (
+    <Card className="border-0 shadow-sm">
+      <CardHeader className="pb-2">
+        <div className="flex flex-col gap-3 md:flex-row md:items-start md:justify-between">
+          <CardTitle className="text-base font-semibold">Signup Frequency</CardTitle>
+          <div className="grid grid-cols-2 gap-2">
+            <div className="space-y-1">
+              <Label htmlFor="signup-start" className="text-xs text-muted-foreground">
+                From
+              </Label>
+              <Input
+                id="signup-start"
+                type="date"
+                min={minDate}
+                max={endDate || maxDate}
+                value={startDate}
+                onChange={(event) => setStartDate(event.target.value)}
+                className="h-9 w-full min-w-0 text-sm"
+              />
+            </div>
+            <div className="space-y-1">
+              <Label htmlFor="signup-end" className="text-xs text-muted-foreground">
+                To
+              </Label>
+              <Input
+                id="signup-end"
+                type="date"
+                min={startDate || minDate}
+                max={maxDate}
+                value={endDate}
+                onChange={(event) => setEndDate(event.target.value)}
+                className="h-9 w-full min-w-0 text-sm"
+              />
+            </div>
+          </div>
+        </div>
+      </CardHeader>
+      <CardContent>
+        <div className="h-72">
+          {filteredData.length ? (
+            <ResponsiveContainer width="100%" height="100%">
+              <BarChart
+                data={filteredData}
+                margin={{ top: 8, right: 16, bottom: 28, left: 8 }}
+                barCategoryGap="24%"
+              >
+                <CartesianGrid vertical={false} stroke="#E5E7EB" />
+                <XAxis
+                  dataKey="date"
+                  tickFormatter={formatAxisDate}
+                  label={{
+                    value: "Date",
+                    position: "insideBottom",
+                    offset: -14,
+                    fill: "#6B7280",
+                    fontSize: 12,
+                  }}
+                  tick={{ fontSize: 12, fill: "#6B7280" }}
+                  tickLine={false}
+                  axisLine={false}
+                />
+                <YAxis
+                  allowDecimals={false}
+                  domain={[0, (dataMax: number) => Math.max(1, dataMax)]}
+                  label={{
+                    value: "Signup count",
+                    angle: -90,
+                    position: "insideLeft",
+                    fill: "#6B7280",
+                    fontSize: 12,
+                  }}
+                  tick={{ fontSize: 12, fill: "#6B7280" }}
+                  tickLine={false}
+                  axisLine={false}
+                />
+                <Tooltip
+                  content={({ active, payload }) => {
+                    if (!active || !payload?.length) return null;
+                    return (
+                      <div className="rounded-lg border border-border bg-card p-2 shadow-lg">
+                        <p className="text-sm font-medium">
+                          {formatDate(payload[0].payload.date)}
+                        </p>
+                        <p className="text-xs text-muted-foreground">
+                          {payload[0].value} signups
+                        </p>
+                      </div>
+                    );
+                  }}
+                />
+                <Bar
+                  dataKey="count"
+                  fill="#6B2D5B"
+                  maxBarSize={42}
+                  radius={[4, 4, 0, 0]}
+                />
+              </BarChart>
+            </ResponsiveContainer>
+          ) : (
+            <div className="flex h-64 items-center justify-center rounded-lg bg-muted text-sm text-muted-foreground">
+              No signups in this date range
+            </div>
+          )}
+        </div>
       </CardContent>
     </Card>
   );
@@ -170,9 +329,164 @@ function BreakdownCard({
   );
 }
 
+function ActivityDonutCard({ data }: { data: AdminUserStatsData }) {
+  const chartData = [
+    { name: "Calendars", value: data.activityTotals.calendars },
+    { name: "Events", value: data.eventStats.totalEvents },
+    { name: "Posts", value: data.activityTotals.posts },
+    { name: "Images", value: data.activityTotals.images },
+    { name: "Reels", value: data.activityTotals.reels },
+  ].filter((item) => item.value > 0);
+  const total = chartData.reduce((sum, item) => sum + item.value, 0);
+
+  return (
+    <Card className="border-0 shadow-sm">
+      <CardHeader className="pb-2">
+        <CardTitle className="text-base font-semibold">Orkyst Activity Mix</CardTitle>
+      </CardHeader>
+      <CardContent>
+        <div className="min-h-72">
+          {chartData.length ? (
+            <div className="grid min-h-72 gap-4 md:grid-cols-[0.78fr_1fr] md:items-center">
+              <div className="space-y-3">
+                {chartData.map((item, index) => {
+                  const percent = total ? Math.round((item.value / total) * 100) : 0;
+                  const color = ACTIVITY_COLORS[index % ACTIVITY_COLORS.length];
+
+                  return (
+                    <div
+                      key={item.name}
+                      className="rounded-lg border border-border bg-background/60 px-3 py-2"
+                    >
+                      <div className="mb-1 flex items-center justify-between gap-3">
+                        <div className="flex min-w-0 items-center gap-2">
+                          <span
+                            className="h-2.5 w-2.5 shrink-0 rounded-full"
+                            style={{ backgroundColor: color }}
+                          />
+                          <span className="truncate text-sm font-medium text-foreground">
+                            {item.name}
+                          </span>
+                        </div>
+                        <span className="text-sm font-semibold text-foreground">{percent}%</span>
+                      </div>
+                      <div className="flex items-center justify-between gap-3 text-xs text-muted-foreground">
+                        <span>{item.value} total</span>
+                        <span>{total} all activity</span>
+                      </div>
+                      <div className="mt-2 h-1.5 rounded-full bg-muted">
+                        <div
+                          className="h-1.5 rounded-full"
+                          style={{ width: `${percent}%`, backgroundColor: color }}
+                        />
+                      </div>
+                    </div>
+                  );
+                })}
+              </div>
+              <div className="h-72">
+                <ResponsiveContainer width="100%" height="100%">
+                  <PieChart>
+                    <Pie
+                      data={chartData}
+                      dataKey="value"
+                      nameKey="name"
+                      innerRadius={62}
+                      outerRadius={94}
+                      paddingAngle={3}
+                      stroke="transparent"
+                    >
+                      {chartData.map((entry, index) => (
+                        <Cell
+                          key={entry.name}
+                          fill={ACTIVITY_COLORS[index % ACTIVITY_COLORS.length]}
+                        />
+                      ))}
+                    </Pie>
+                    <Tooltip
+                      content={({ active, payload }) => {
+                        if (!active || !payload?.length) return null;
+                        const item = payload[0];
+                        const value = Number(item.value ?? 0);
+                        return (
+                          <div className="rounded-lg border border-border bg-card p-2 shadow-lg">
+                            <p className="text-sm font-medium">{item.name}</p>
+                            <p className="text-xs text-muted-foreground">
+                              {value} total · {total ? Math.round((value / total) * 100) : 0}%
+                            </p>
+                          </div>
+                        );
+                      }}
+                    />
+                  </PieChart>
+                </ResponsiveContainer>
+              </div>
+            </div>
+          ) : (
+            <div className="flex h-full items-center justify-center rounded-lg bg-muted text-sm text-muted-foreground">
+              No product activity yet
+            </div>
+          )}
+        </div>
+      </CardContent>
+    </Card>
+  );
+}
+
+function RecentActivityCard({ items }: { items: AdminUserStatsData["recentActivity"] }) {
+  return (
+    <Card className="border-0 shadow-sm">
+      <CardHeader className="border-b border-border pb-4">
+        <div className="flex items-center gap-2">
+          <Activity className="h-5 w-5 text-primary" />
+          <CardTitle className="text-base font-semibold">Recent Activity</CardTitle>
+        </div>
+      </CardHeader>
+      <CardContent className="p-0">
+        {items.length ? (
+          <div className="max-h-80 divide-y divide-border overflow-y-auto">
+            {items.map((item) => {
+              const Icon = activityIcon(item.kind);
+              return (
+                <div key={item.id} className="flex gap-3 px-5 py-4">
+                  <div className="mt-0.5 flex h-9 w-9 shrink-0 items-center justify-center rounded-lg bg-primary/10 text-primary">
+                    <Icon className="h-4 w-4" />
+                  </div>
+                  <div className="min-w-0 flex-1">
+                    <div className="flex flex-col gap-1 sm:flex-row sm:items-center sm:justify-between">
+                      <p className="truncate text-sm font-medium text-foreground">{item.title}</p>
+                      <span className="shrink-0 text-xs text-muted-foreground">
+                        {formatDate(item.createdAt)}
+                      </span>
+                    </div>
+                    <p className="mt-1 text-xs text-muted-foreground">
+                      {item.label}
+                      {item.email ? ` · ${item.email}` : ""}
+                    </p>
+                    <p className="mt-1 text-xs font-medium text-primary">{label(item.metadata)}</p>
+                  </div>
+                </div>
+              );
+            })}
+          </div>
+        ) : (
+          <div className="flex h-72 items-center justify-center text-sm text-muted-foreground">
+            No recent activity found
+          </div>
+        )}
+      </CardContent>
+    </Card>
+  );
+}
+
 function AdminLoading() {
   return (
     <div className="space-y-6">
+      <Card className="border-0 shadow-sm">
+        <CardContent className="p-8">
+          <OrkystLoader label="Loading admin analytics" />
+        </CardContent>
+      </Card>
       <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-4">
         {Array.from({ length: 4 }).map((_, index) => (
           <Card key={index} className="border-0 shadow-sm">
@@ -190,6 +504,7 @@ function AdminLoading() {
 }
 
 export default function AdminUserStatsPage() {
+  const router = useRouter();
   const [data, setData] = useState<AdminUserStatsData | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
@@ -197,9 +512,21 @@ export default function AdminUserStatsPage() {
   useEffect(() => {
     fetchAdminUserStats()
       .then(setData)
-      .catch((err) => setError(err.message || "Failed to load admin stats"))
+      .catch((err) => {
+        const message = err instanceof Error ? err.message : "Failed to load admin stats";
+        if (message.toLowerCase().includes("sign in")) {
+          router.replace("/login");
+          return;
+        }
+        setError(message);
+      })
       .finally(() => setLoading(false));
-  }, []);
+  }, [router]);
+
+  const handleLogout = async () => {
+    await logout().catch(() => undefined);
+    router.replace("/login");
+  };
 
   const activeConnectedUsers = useMemo(() => {
     return data?.recentUsers.filter((user) => user.connectedPlatforms.length > 0).length ?? 0;
@@ -229,6 +556,10 @@ export default function AdminUserStatsPage() {
               >
                 Admin
               </Link>
+              <Button variant="ghost" size="sm" onClick={handleLogout}>
+                <LogOut className="h-4 w-4" />
+                Sign out
+              </Button>
             </nav>
           </div>
         </div>
@@ -286,8 +617,8 @@ export default function AdminUserStatsPage() {
             </div>
 
             <div className="grid gap-4 xl:grid-cols-2">
-              <TrendChart title="Signup Frequency" data={data.signupTrend} color="#6B2D5B" />
-              <TrendChart title="Onboarding Completed" data={data.onboardingTrend} color="#0F766E" />
+              <SignupFrequencyChart data={data.signupTrend} />
+              <ActivityDonutCard data={data} />
             </div>
 
             <div className="grid gap-4 lg:grid-cols-4">
@@ -317,9 +648,41 @@ export default function AdminUserStatsPage() {
               />
             </div>
 
+            <div className="grid gap-4 xl:grid-cols-[0.9fr_1.1fr]">
+              <TrendChart title="Onboarding Completed" data={data.onboardingTrend} color="#0F766E" />
+              <RecentActivityCard items={data.recentActivity} />
+            </div>
+
+            <div className="grid gap-4 lg:grid-cols-4">
+              <MetricCard
+                title="Events"
+                value={data.eventStats.totalEvents}
+                helper={`${data.eventStats.approvedEvents} approved`}
+                icon={MousePointer2}
+              />
+              <MetricCard
+                title="Posted"
+                value={data.eventStats.postedEvents}
+                helper="Published social events"
+                icon={CheckCircle2}
+              />
+              <MetricCard
+                title="Scheduled"
+                value={data.eventStats.scheduledEvents}
+                helper="Queued for posting"
+                icon={Clock3}
+              />
+              <MetricCard
+                title="Failed"
+                value={data.eventStats.failedEvents}
+                helper="Posting attempts needing review"
+                icon={Activity}
+              />
+            </div>
+
             <div className="grid gap-4 lg:grid-cols-3">
               <BreakdownCard title="Signup Provider" items={data.providerBreakdown} />
-              <BreakdownCard title="Plan Mix" items={data.planBreakdown} />
+              <BreakdownCard title="Event Status" items={data.eventStatusBreakdown} />
               <BreakdownCard
                 title="Connected Platforms"
                 items={data.socialConnections}

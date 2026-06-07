@@ -158,3 +158,36 @@
 .orkyst-gradient {
   background: linear-gradient(135deg, oklch(0.35 0.12 320) 0%, oklch(0.45 0.15 280) 100%);
 }
+
+.orkyst-loader-gradient {
+  background: linear-gradient(
+    110deg,
+    color-mix(in oklch, var(--primary) 10%, white) 8%,
+    color-mix(in oklch, var(--primary) 24%, white) 18%,
+    color-mix(in oklch, var(--accent) 18%, white) 33%,
+    color-mix(in oklch, var(--primary) 10%, white) 48%
+  );
+  background-size: 220% 100%;
+  animation: orkyst-shimmer 1.35s ease-in-out infinite;
+}
+
+.orkyst-loader-ring {
+  background:
+    conic-gradient(from 0deg, oklch(0.35 0.12 320), oklch(0.55 0.18 280), oklch(0.35 0.12 320));
+  animation: orkyst-spin 0.9s linear infinite;
+}
+
+@keyframes orkyst-shimmer {
+  0% {
+    background-position: 120% 0;
+  }
+  100% {
+    background-position: -120% 0;
+  }
+}
+
+@keyframes orkyst-spin {
+  to {
+    transform: rotate(360deg);
+  }
+}

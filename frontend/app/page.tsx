@@ -1,13 +1,49 @@
+"use client";
+
+import { useEffect, useState } from "react";
+import Link from "next/link";
+import { useRouter } from "next/navigation";
 import { OrkystLogo } from "@/components/orkyst-logo";
 import { CTAPerformanceWidget } from "@/components/analytics/cta-performance-widget";
 import { PostsPerformanceWidget } from "@/components/analytics/posts-performance-widget";
 import { SentimentWidget } from "@/components/analytics/sentiment-widget";
 import { AIRecommendationsWidget } from "@/components/analytics/ai-recommendations-widget";
-import { CalendarDays, ChevronDown } from "lucide-react";
+import { CalendarDays, ChevronDown, LogOut } from "lucide-react";
 import { Button } from "@/components/ui/button";
-import Link from "next/link";
+import { OrkystLoader } from "@/components/ui/orkyst-loader";
+import { fetchAuthMe, logout } from "@/lib/api";
 
 export default function AnalyticsDashboard() {
+  const router = useRouter();
+  const [checkingAuth, setCheckingAuth] = useState(true);
+  const [authenticated, setAuthenticated] = useState(false);
+
+  useEffect(() => {
+    fetchAuthMe()
+      .then((session) => {
+        if (!session.authenticated) {
+          router.replace("/login?next=/");
+          return;
+        }
+        setAuthenticated(true);
+        setCheckingAuth(false);
+      })
+      .catch(() => router.replace("/login?next=/"))
+  }, [router]);
+
+  const handleLogout = async () => {
+    await logout().catch(() => undefined);
+    router.replace("/login?next=/");
+  };
+
+  if (checkingAuth || !authenticated) {
+    return (
+      <main className="flex min-h-screen items-center justify-center bg-background px-6">
+        <OrkystLoader label="Loading analytics" />
+      </main>
+    );
+  }
+
   return (
     <div className="min-h-screen bg-background">
       {/* Navigation */}
@@ -51,6 +87,10 @@ export default function AnalyticsDashboard() {
               >
                 Admin
               </Link>
+              <Button variant="ghost" size="sm" onClick={handleLogout}>
+                <LogOut className="h-4 w-4" />
+                Sign out
+              </Button>
             </nav>
             <div className="flex items-center gap-3">
               <div className="flex h-9 w-9 items-center justify-center rounded-full bg-primary/10">

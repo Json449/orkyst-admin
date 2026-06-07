@@ -230,3 +230,8 @@ frontend/.env.production
 
 # API server logs
 *.log
+
+# Local admin auth database
+data/*.sqlite3
+data/*.sqlite3-journal
+data/.admin_session_secret

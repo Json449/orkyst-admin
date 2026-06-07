@@ -8,13 +8,15 @@ Start with:
 """
 
 import json
+import os
 import sys
 from collections import defaultdict
 from pathlib import Path
 
 from dotenv import load_dotenv
-from fastapi import FastAPI, Query
+from fastapi import FastAPI, HTTPException, Query, Request, Response
 from fastapi.middleware.cors import CORSMiddleware
+from pydantic import BaseModel
 
 ROOT = Path(__file__).parent.parent
 sys.path.insert(0, str(ROOT))
@@ -24,8 +26,16 @@ from pipeline.processor import process, CONTENT_TYPE_LABELS, PLATFORM_LABELS
 from pipeline.retriever import fetch_graph_context
 from pipeline.llm_analyst import generate_recommendations
 from pipeline.admin_stats import build_admin_stats
+from api.admin_auth import (
+    SESSION_MAX_AGE_SECONDS,
+    authenticate_admin,
+    create_session,
+    ensure_admin_db,
+    verify_session,
+)
 
 INPUT_DATA = ROOT / "dummy_input_data.json"
+AUTH_COOKIE_NAME = "graph_admin_session"
 
 PLATFORM_COLORS = {
     "linkedin": "#0A66C2",
@@ -35,6 +45,7 @@ PLATFORM_COLORS = {
 }
 
 app = FastAPI(title="Orkyst Analytics API")
+ensure_admin_db()
 
 app.add_middleware(
     CORSMiddleware,
@@ -46,9 +57,15 @@ app.add_middleware(
         "http://127.0.0.1:3002",
         "http://127.0.0.1:3003",
     ],
-    allow_methods=["GET"],
+    allow_methods=["GET", "POST"],
     allow_headers=["*"],
+    allow_credentials=True,
 )
+
+
+class LoginPayload(BaseModel):
+    email: str
+    password: str
 
 
 def _fmt_number(n: int | float) -> str:
@@ -66,8 +83,56 @@ def _delta_str(pct: float) -> str:
     return f"{sign}{pct:.1f}%"
 
 
+def _require_admin_session(request: Request) -> dict:
+    session = verify_session(request.cookies.get(AUTH_COOKIE_NAME))
+    if not session:
+        raise HTTPException(status_code=401, detail="Please sign in to view this dashboard")
+    return session
+
+
+@app.post("/api/auth/login")
+def login(payload: LoginPayload, response: Response):
+    admin = authenticate_admin(payload.email, payload.password)
+    if not admin:
+        raise HTTPException(status_code=401, detail="Invalid admin credentials")
+
+    response.set_cookie(
+        key=AUTH_COOKIE_NAME,
+        value=create_session(admin),
+        httponly=True,
+        secure=os.getenv("ENVIRONMENT") == "production",
+        samesite="lax",
+        max_age=SESSION_MAX_AGE_SECONDS,
+        path="/",
+    )
+    return {
+        "status": 200,
+        "result": {
+            "email": admin["email"],
+            "role": admin["role"],
+        },
+    }
+
+
+@app.post("/api/auth/logout")
+def logout(response: Response):
+    response.delete_cookie(AUTH_COOKIE_NAME, path="/")
+    return {"status": 200}
+
+
+@app.get("/api/auth/me")
+def auth_me(request: Request):
+    session = verify_session(request.cookies.get(AUTH_COOKIE_NAME))
+    return {
+        "authenticated": bool(session),
+        "email": session.get("email") if session else None,
+        "role": session.get("role") if session else None,
+    }
+
+
 @app.get("/api/analytics/cta")
-def cta_analytics(user_id: str = Query(default="local_test")):
+def cta_analytics(request: Request, user_id: str = Query(default="local_test")):
+    _require_admin_session(request)
     data = process(INPUT_DATA)
     raw = json.loads(INPUT_DATA.read_text())
     ov = data["overview"]
@@ -113,7 +178,8 @@ def cta_analytics(user_id: str = Query(default="local_test")):
 
 
 @app.get("/api/analytics/posts")
-def posts_analytics(user_id: str = Query(default="local_test")):
+def posts_analytics(request: Request, user_id: str = Query(default="local_test")):
+    _require_admin_session(request)
     data = process(INPUT_DATA)
     ov = data["overview"]
     account = data["account"]
@@ -166,7 +232,8 @@ def posts_analytics(user_id: str = Query(default="local_test")):
 
 
 @app.get("/api/analytics/sentiment")
-def sentiment_analytics(user_id: str = Query(default="local_test")):
+def sentiment_analytics(request: Request, user_id: str = Query(default="local_test")):
+    _require_admin_session(request)
     data = process(INPUT_DATA)
     s = data["sentiment"]
 
@@ -199,7 +266,8 @@ def sentiment_analytics(user_id: str = Query(default="local_test")):
 
 
 @app.get("/api/analytics/recommendations")
-def recommendations_analytics(user_id: str = Query(default="local_test")):
+def recommendations_analytics(request: Request, user_id: str = Query(default="local_test")):
+    _require_admin_session(request)
     graph = fetch_graph_context(user_id=user_id)
     if not graph["chunk_texts"]:
         return {
@@ -214,7 +282,8 @@ def recommendations_analytics(user_id: str = Query(default="local_test")):
 
 
 @app.get("/api/admin/user-stats")
-def admin_user_stats():
+def admin_user_stats(request: Request):
+    _require_admin_session(request)
     return build_admin_stats()
 
 
