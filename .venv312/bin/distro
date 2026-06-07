@@ -1,0 +1,6 @@
+#!/Users/apple/Downloads/graph-based-data-analytics-pipeline-main/.venv312/bin/python
+import sys
+from distro.distro import main
+if __name__ == '__main__':
+    sys.argv[0] = sys.argv[0].removesuffix('.exe')
+    sys.exit(main())

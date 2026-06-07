@@ -1,0 +1,296 @@
+{
+  "_README": "Raw social media input data that simulates what a cron job would pull from platform APIs. The processor (pipeline/processor.py) derives the analytics shown in the dashboard from this data.",
+
+  "accounts": [
+    {
+      "id": "sa_li_001",
+      "platform": "linkedin",
+      "handle": "@orkyst",
+      "displayName": "Orkyst",
+      "followersHistory": [
+        { "date": "2026-04-08", "followers": 17110 },
+        { "date": "2026-05-08", "followers": 18420 }
+      ]
+    },
+    {
+      "id": "sa_ig_001",
+      "platform": "instagram",
+      "handle": "@orkyst",
+      "displayName": "Orkyst",
+      "followersHistory": [
+        { "date": "2026-04-08", "followers": 11200 },
+        { "date": "2026-05-08", "followers": 12050 }
+      ]
+    },
+    {
+      "id": "sa_tw_001",
+      "platform": "twitter",
+      "handle": "@orkyst",
+      "displayName": "Orkyst",
+      "followersHistory": [
+        { "date": "2026-04-08", "followers": 8900 },
+        { "date": "2026-05-08", "followers": 9310 }
+      ]
+    },
+    {
+      "id": "sa_fb_001",
+      "platform": "facebook",
+      "handle": "Orkyst",
+      "displayName": "Orkyst",
+      "followersHistory": [
+        { "date": "2026-04-08", "followers": 5100 },
+        { "date": "2026-05-08", "followers": 5430 }
+      ]
+    }
+  ],
+
+  "posts": [
+    {
+      "id": "post_001",
+      "accountId": "sa_li_001",
+      "platform": "linkedin",
+      "contentType": "blog",
+      "title": "5 Marketing Trends for 2026",
+      "body": "AI-driven personalization, short-form video, community-led growth, zero-party data, and purpose-driven branding are the five trends reshaping marketing in 2026. Here's how Orkyst helps you stay ahead.",
+      "publishedAt": "2026-01-12T10:30:00Z",
+      "url": "https://orkyst.com/blog/marketing-trends-2026",
+      "metrics": {
+        "impressions": 24500,
+        "reach": 20800,
+        "likes": 1102,
+        "comments": 312,
+        "shares": 433,
+        "linkClicks": 820
+      }
+    },
+    {
+      "id": "post_002",
+      "accountId": "sa_li_001",
+      "platform": "linkedin",
+      "contentType": "blog",
+      "title": "Why Knowledge Graphs Are the Future of Marketing Analytics",
+      "body": "Traditional analytics tools treat data in silos. Knowledge graphs connect your content, audience, platforms, and outcomes into a unified intelligence layer.",
+      "publishedAt": "2026-01-28T09:00:00Z",
+      "url": "https://orkyst.com/blog/knowledge-graphs-marketing",
+      "metrics": {
+        "impressions": 18700,
+        "reach": 15400,
+        "likes": 870,
+        "comments": 190,
+        "shares": 310,
+        "linkClicks": 650
+      }
+    },
+    {
+      "id": "post_003",
+      "accountId": "sa_li_001",
+      "platform": "linkedin",
+      "contentType": "blog",
+      "title": "The ROI of Consistent LinkedIn Posting",
+      "body": "Brands that post 3–5 times per week on LinkedIn see 2x more follower growth and 60% higher engagement rates. Here's the data behind the strategy.",
+      "publishedAt": "2026-02-10T11:00:00Z",
+      "url": "https://orkyst.com/blog/linkedin-roi",
+      "metrics": {
+        "impressions": 21000,
+        "reach": 17800,
+        "likes": 940,
+        "comments": 220,
+        "shares": 380,
+        "linkClicks": 710
+      }
+    },
+    {
+      "id": "post_004",
+      "accountId": "sa_ig_001",
+      "platform": "instagram",
+      "contentType": "case_study",
+      "title": "Case Study: How We Grew 300%",
+      "body": "One of our clients scaled their organic reach by 300% in 90 days using Orkyst's AI content intelligence. Here's the full breakdown of what worked.",
+      "publishedAt": "2026-01-18T09:15:00Z",
+      "url": "https://orkyst.com/case-studies/300-percent-growth",
+      "metrics": {
+        "impressions": 18200,
+        "reach": 15600,
+        "likes": 1580,
+        "comments": 312,
+        "shares": 212,
+        "linkClicks": 480
+      }
+    },
+    {
+      "id": "post_005",
+      "accountId": "sa_ig_001",
+      "platform": "instagram",
+      "contentType": "case_study",
+      "title": "Case Study: 50% Reduction in Content Production Time",
+      "body": "A B2B SaaS brand cut their content production time in half while doubling output quality. Orkyst's AI content scheduling made the difference.",
+      "publishedAt": "2026-02-05T10:30:00Z",
+      "url": "https://orkyst.com/case-studies/content-efficiency",
+      "metrics": {
+        "impressions": 14800,
+        "reach": 12400,
+        "likes": 1100,
+        "comments": 245,
+        "shares": 180,
+        "linkClicks": 390
+      }
+    },
+    {
+      "id": "post_006",
+      "accountId": "sa_tw_001",
+      "platform": "twitter",
+      "contentType": "social_link",
+      "title": "New feature alert: AI Sentiment Tracking",
+      "body": "🚀 Just shipped: real-time sentiment tracking across all your social channels. Know how your audience feels about your content before it goes viral — or doesn't. Link in bio.",
+      "publishedAt": "2026-01-20T13:00:00Z",
+      "url": "https://orkyst.com/features/sentiment",
+      "metrics": {
+        "impressions": 29400,
+        "reach": 24000,
+        "likes": 840,
+        "comments": 180,
+        "shares": 436,
+        "linkClicks": 920
+      }
+    },
+    {
+      "id": "post_007",
+      "accountId": "sa_tw_001",
+      "platform": "twitter",
+      "contentType": "social_link",
+      "title": "Quick tip for better engagement",
+      "body": "Your best-performing content window is 9–11 AM Tuesday/Thursday. Are you posting then? If not, you're leaving 43% engagement on the table. Orkyst tells you exactly when to post.",
+      "publishedAt": "2026-01-15T14:30:00Z",
+      "url": "https://orkyst.com/blog/posting-times",
+      "metrics": {
+        "impressions": 32100,
+        "reach": 26800,
+        "likes": 1020,
+        "comments": 210,
+        "shares": 226,
+        "linkClicks": 1100
+      }
+    },
+    {
+      "id": "post_008",
+      "accountId": "sa_fb_001",
+      "platform": "facebook",
+      "contentType": "external_media",
+      "title": "Orkyst Demo Reel 2026",
+      "body": "Watch how Orkyst turns fragmented social data into a connected knowledge graph that powers smarter content decisions. 2-minute demo.",
+      "publishedAt": "2026-01-25T16:00:00Z",
+      "url": "https://youtube.com/watch?v=orkyst-demo",
+      "metrics": {
+        "impressions": 12800,
+        "reach": 10400,
+        "likes": 620,
+        "comments": 140,
+        "shares": 190,
+        "linkClicks": 390
+      }
+    },
+    {
+      "id": "post_009",
+      "accountId": "sa_fb_001",
+      "platform": "facebook",
+      "contentType": "external_media",
+      "title": "Podcast: The Future of AI in Marketing",
+      "body": "Our CEO joins the Future of Marketing podcast to discuss how AI knowledge graphs are changing the analytics game. Listen now.",
+      "publishedAt": "2026-02-08T12:00:00Z",
+      "url": "https://podcasts.example.com/orkyst",
+      "metrics": {
+        "impressions": 9800,
+        "reach": 8100,
+        "likes": 410,
+        "comments": 95,
+        "shares": 145,
+        "linkClicks": 285
+      }
+    }
+  ],
+
+  "comments": [
+    {
+      "id": "cmt_001", "postId": "post_001", "author": "@alex",
+      "body": "This is genuinely innovative — saving for later.",
+      "publishedAt": "2026-01-12T11:02:00Z", "likes": 14
+    },
+    {
+      "id": "cmt_002", "postId": "post_001", "author": "@priya",
+      "body": "Excellent breakdown of trend #3.",
+      "publishedAt": "2026-01-12T11:45:00Z", "likes": 9
+    },
+    {
+      "id": "cmt_003", "postId": "post_001", "author": "@dan",
+      "body": "Helpful, but trend #5 felt a bit obvious.",
+      "publishedAt": "2026-01-12T13:10:00Z", "likes": 5
+    },
+    {
+      "id": "cmt_004", "postId": "post_001", "author": "@maria",
+      "body": "Confusing structure — could use a TL;DR.",
+      "publishedAt": "2026-01-12T14:00:00Z", "likes": 2
+    },
+    {
+      "id": "cmt_005", "postId": "post_001", "author": "@kenji",
+      "body": "Great value, exactly what I needed this week.",
+      "publishedAt": "2026-01-12T15:30:00Z", "likes": 11
+    },
+    {
+      "id": "cmt_006", "postId": "post_004", "author": "@sara",
+      "body": "Incredible results! Would love to know more about the content strategy.",
+      "publishedAt": "2026-01-18T10:00:00Z", "likes": 22
+    },
+    {
+      "id": "cmt_007", "postId": "post_004", "author": "@tom",
+      "body": "Recommended this to our whole marketing team.",
+      "publishedAt": "2026-01-18T10:45:00Z", "likes": 18
+    },
+    {
+      "id": "cmt_008", "postId": "post_004", "author": "@zhang",
+      "body": "The 300% number seems too good to be true — what's the baseline?",
+      "publishedAt": "2026-01-18T12:00:00Z", "likes": 7
+    },
+    {
+      "id": "cmt_009", "postId": "post_007", "author": "@nina",
+      "body": "This is exactly the insight I needed. Slow platform for sure but great content.",
+      "publishedAt": "2026-01-15T15:10:00Z", "likes": 31
+    },
+    {
+      "id": "cmt_010", "postId": "post_007", "author": "@raj",
+      "body": "The posting schedule feature is a game changer. Worth every penny.",
+      "publishedAt": "2026-01-15T16:20:00Z", "likes": 25
+    },
+    {
+      "id": "cmt_011", "postId": "post_007", "author": "@lena",
+      "body": "Expensive compared to alternatives but the data quality is excellent.",
+      "publishedAt": "2026-01-15T17:00:00Z", "likes": 8
+    }
+  ],
+
+  "platformDailyMetrics": [
+    { "date": "2026-01-05", "platform": "linkedin", "impressions": 12400, "engagements": 780,  "linkClicks": 310 },
+    { "date": "2026-01-10", "platform": "linkedin", "impressions": 14100, "engagements": 820,  "linkClicks": 355 },
+    { "date": "2026-01-15", "platform": "linkedin", "impressions": 15600, "engagements": 860,  "linkClicks": 410 },
+    { "date": "2026-01-20", "platform": "linkedin", "impressions": 17200, "engagements": 880,  "linkClicks": 490 },
+    { "date": "2026-01-25", "platform": "linkedin", "impressions": 19800, "engagements": 910,  "linkClicks": 540 },
+    { "date": "2026-01-30", "platform": "linkedin", "impressions": 21500, "engagements": 940,  "linkClicks": 620 },
+    { "date": "2026-01-05", "platform": "instagram","impressions": 8200,  "engagements": 640,  "linkClicks": 180 },
+    { "date": "2026-01-10", "platform": "instagram","impressions": 9400,  "engagements": 710,  "linkClicks": 210 },
+    { "date": "2026-01-15", "platform": "instagram","impressions": 11200, "engagements": 830,  "linkClicks": 260 },
+    { "date": "2026-01-20", "platform": "instagram","impressions": 13000, "engagements": 870,  "linkClicks": 300 },
+    { "date": "2026-01-25", "platform": "instagram","impressions": 14800, "engagements": 920,  "linkClicks": 340 },
+    { "date": "2026-01-30", "platform": "instagram","impressions": 16200, "engagements": 980,  "linkClicks": 390 },
+    { "date": "2026-01-05", "platform": "twitter",  "impressions": 18000, "engagements": 520,  "linkClicks": 240 },
+    { "date": "2026-01-10", "platform": "twitter",  "impressions": 21000, "engagements": 560,  "linkClicks": 290 },
+    { "date": "2026-01-15", "platform": "twitter",  "impressions": 32100, "engagements": 780,  "linkClicks": 420 },
+    { "date": "2026-01-20", "platform": "twitter",  "impressions": 22400, "engagements": 580,  "linkClicks": 310 },
+    { "date": "2026-01-25", "platform": "twitter",  "impressions": 24800, "engagements": 610,  "linkClicks": 340 },
+    { "date": "2026-01-30", "platform": "twitter",  "impressions": 26500, "engagements": 650,  "linkClicks": 370 },
+    { "date": "2026-01-05", "platform": "facebook", "impressions": 5100,  "engagements": 210,  "linkClicks": 90  },
+    { "date": "2026-01-10", "platform": "facebook", "impressions": 6200,  "engagements": 240,  "linkClicks": 110 },
+    { "date": "2026-01-15", "platform": "facebook", "impressions": 7400,  "engagements": 270,  "linkClicks": 130 },
+    { "date": "2026-01-20", "platform": "facebook", "impressions": 8100,  "engagements": 290,  "linkClicks": 140 },
+    { "date": "2026-01-25", "platform": "facebook", "impressions": 9200,  "engagements": 310,  "linkClicks": 155 },
+    { "date": "2026-01-30", "platform": "facebook", "impressions": 10400, "engagements": 340,  "linkClicks": 175 }
+  ]
+}

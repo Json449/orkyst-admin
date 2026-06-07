@@ -1,0 +1,233 @@
+{
+  "_README": "Sample API responses for the analytics module. Every value here matches the values seeded in analytics_seed.cypher and the numbers shown in the dashboard screenshots. Use these shapes as the contract between backend and frontend.",
+
+  "GET /api/analytics/overview": {
+    "description": "Top-of-page CTA Performance cards + Clicks-by-Content-Type bar chart + Platform Distribution donut. Range: last 30 days.",
+    "screenshot": "Screenshot 1 (CTA Performance) + Screenshot 2 (Platform Distribution)",
+    "response": {
+      "success": true,
+      "range": { "start": "2026-04-08", "end": "2026-05-08", "label": "Last 30 days" },
+      "ctaPerformance": {
+        "totalLinkClicks": { "value": 9900,  "deltaPct": 12.5, "deltaLabel": "+12.5% vs last month" },
+        "siteVisits":      { "value": 6240,  "deltaPct":  8.3, "deltaLabel": "+8.3% vs last month"  },
+        "newAudience":     { "value": 1847,  "deltaPct": 15.2, "deltaLabel": "+15.2% vs last month" },
+        "avgCtr":          { "value": 0.039, "deltaPct":  0.4, "deltaLabel": "+0.4% vs last month"  }
+      },
+      "clicksByContentType": [
+        { "type": "blog",           "label": "Blog Posts",     "clicks": 3120 },
+        { "type": "case_study",     "label": "Case Studies",   "clicks": 1980 },
+        { "type": "social_link",    "label": "Social Links",   "clicks": 3650 },
+        { "type": "external_media", "label": "External Media", "clicks": 1150 }
+      ],
+      "platformDistribution": [
+        { "platform": "linkedin",  "label": "LinkedIn",  "sharePct": 42 },
+        { "platform": "instagram", "label": "Instagram", "sharePct": 28 },
+        { "platform": "twitter",   "label": "Twitter",   "sharePct": 20 },
+        { "platform": "facebook",  "label": "Facebook",  "sharePct": 10 }
+      ]
+    }
+  },
+
+  "GET /api/analytics/account/:id": {
+    "description": "Per-account analytics. Example for the LinkedIn account (id=sa_li_001).",
+    "screenshot": "Screenshot 2 (Engagement Trend uses this account's daily metrics)",
+    "response": {
+      "success": true,
+      "account": {
+        "id": "sa_li_001",
+        "platform": "linkedin",
+        "handle": "@orkyst",
+        "displayName": "Orkyst",
+        "followers": 18420,
+        "followersDelta": 1310,
+        "followersDeltaPct": 7.66
+      },
+      "summary": {
+        "impressions": 100600,
+        "reach":       86400,
+        "engagements": 5190,
+        "engagementRate": 0.0516,
+        "posts":       3
+      },
+      "engagementTrend": [
+        { "date": "2026-01-05", "impressions": 12400, "engagements": 780 },
+        { "date": "2026-01-10", "impressions": 14100, "engagements": 820 },
+        { "date": "2026-01-15", "impressions": 15600, "engagements": 860 },
+        { "date": "2026-01-20", "impressions": 17200, "engagements": 880 },
+        { "date": "2026-01-25", "impressions": 19800, "engagements": 910 },
+        { "date": "2026-01-30", "impressions": 21500, "engagements": 940 }
+      ]
+    }
+  },
+
+  "GET /api/analytics/posts": {
+    "description": "Top performing posts, sorted by engagementRate desc. Drives the 'Top Performing Posts' table.",
+    "screenshot": "Screenshot 2 (Top Performing Posts)",
+    "response": {
+      "success": true,
+      "sort": "engagementRate_desc",
+      "posts": [
+        {
+          "id": "post_001",
+          "title": "5 Marketing Trends for 2026",
+          "contentType": "blog",
+          "contentTypeLabel": "Blog",
+          "platform": "linkedin",
+          "impressions": 24500, "impressionsLabel": "24.5K",
+          "engagements": 1847,  "engagementsLabel": "1,847",
+          "engagementRate": 0.075, "engagementRateLabel": "7.5%",
+          "publishedAt": "2026-01-12T10:30:00Z"
+        },
+        {
+          "id": "post_004",
+          "title": "Case Study: How We Grew 300%",
+          "contentType": "case_study",
+          "contentTypeLabel": "Case Study",
+          "platform": "instagram",
+          "impressions": 18200, "impressionsLabel": "18.2K",
+          "engagements": 2104,  "engagementsLabel": "2,104",
+          "engagementRate": 0.116, "engagementRateLabel": "11.6%",
+          "publishedAt": "2026-01-18T09:15:00Z"
+        },
+        {
+          "id": "post_007",
+          "title": "Quick tip for better engagement",
+          "contentType": "social_link",
+          "contentTypeLabel": "Social",
+          "platform": "twitter",
+          "impressions": 32100, "impressionsLabel": "32.1K",
+          "engagements": 1456,  "engagementsLabel": "1,456",
+          "engagementRate": 0.045, "engagementRateLabel": "4.5%",
+          "publishedAt": "2026-01-15T14:30:00Z"
+        }
+      ]
+    }
+  },
+
+  "GET /api/analytics/sentiment": {
+    "description": "Overall sentiment donut + per-platform stacked bars + trending keywords + sentiment trend.",
+    "screenshot": "Screenshot 3 (Sentiment Analysis)",
+    "response": {
+      "success": true,
+      "totalAnalyzed": 4847,
+      "trendDeltaPct": 4,
+      "trendLabel": "+4% this month",
+      "overall": {
+        "positivePct": 62,
+        "neutralPct":  28,
+        "negativePct": 10
+      },
+      "byPlatform": [
+        { "platform": "linkedin",  "positivePct": 72, "neutralPct": 20, "negativePct": 8  },
+        { "platform": "instagram", "positivePct": 68, "neutralPct": 24, "negativePct": 8  },
+        { "platform": "twitter",   "positivePct": 48, "neutralPct": 36, "negativePct": 16 },
+        { "platform": "facebook",  "positivePct": 56, "neutralPct": 30, "negativePct": 14 }
+      ],
+      "trendingKeywords": {
+        "positive": ["innovative", "helpful", "excellent", "great value", "recommended"],
+        "negative": ["confusing", "slow", "expensive"]
+      }
+    }
+  },
+
+  "GET /api/analytics/sentiment?postId=post_001": {
+    "description": "Per-post sentiment breakdown (use the same endpoint with a postId filter).",
+    "response": {
+      "success": true,
+      "postId": "post_001",
+      "totalComments": 5,
+      "breakdown": { "positivePct": 60, "neutralPct": 20, "negativePct": 20 },
+      "comments": [
+        { "id": "cmt_001", "author": "@alex",  "body": "This is genuinely innovative — saving for later.", "sentiment": "positive", "sentimentScore":  0.92, "keywords": ["innovative","helpful"] },
+        { "id": "cmt_002", "author": "@priya", "body": "Excellent breakdown of trend #3.",                   "sentiment": "positive", "sentimentScore":  0.88, "keywords": ["excellent"] },
+        { "id": "cmt_003", "author": "@dan",   "body": "Helpful, but trend #5 felt a bit obvious.",          "sentiment": "neutral",  "sentimentScore":  0.10, "keywords": ["helpful"] },
+        { "id": "cmt_004", "author": "@maria", "body": "Confusing structure — could use a TL;DR.",           "sentiment": "negative", "sentimentScore": -0.62, "keywords": ["confusing"] },
+        { "id": "cmt_005", "author": "@kenji", "body": "Great value, exactly what I needed this week.",      "sentiment": "positive", "sentimentScore":  0.95, "keywords": ["great value"] }
+      ]
+    }
+  },
+
+  "GET /api/analytics/trends": {
+    "description": "Time-series for the Engagement Trend line chart. Query params: start, end, granularity (daily|weekly|monthly), accountId? (defaults to all).",
+    "screenshot": "Screenshot 2 (Engagement Trend)",
+    "exampleRequest": "/api/analytics/trends?start=2026-01-01&end=2026-01-31&granularity=daily",
+    "response": {
+      "success": true,
+      "range": { "start": "2026-01-01", "end": "2026-01-31", "granularity": "daily" },
+      "series": [
+        { "metric": "impressions", "points": [
+          { "date": "2026-01-05", "value": 12400 },
+          { "date": "2026-01-10", "value": 14100 },
+          { "date": "2026-01-15", "value": 15600 },
+          { "date": "2026-01-20", "value": 17200 },
+          { "date": "2026-01-25", "value": 19800 },
+          { "date": "2026-01-30", "value": 21500 }
+        ]},
+        { "metric": "engagements", "points": [
+          { "date": "2026-01-05", "value": 780 },
+          { "date": "2026-01-10", "value": 820 },
+          { "date": "2026-01-15", "value": 860 },
+          { "date": "2026-01-20", "value": 880 },
+          { "date": "2026-01-25", "value": 910 },
+          { "date": "2026-01-30", "value": 940 }
+        ]}
+      ]
+    }
+  },
+
+  "GET /api/analytics/recommendations": {
+    "description": "AI Recommendations panel — best day/time/platform + four ranked recommendations + projected uplift.",
+    "screenshot": "Screenshot 3 + Screenshot 4 (AI Recommendations)",
+    "response": {
+      "success": true,
+      "bestDay":      "Tuesday",
+      "bestTime":     "10:30 AM",
+      "topPlatform":  "LinkedIn",
+      "projectedUpliftPct": 35,
+      "addedToCalendarCount": 0,
+      "totalCount": 4,
+      "recommendations": [
+        {
+          "id": "rec_001",
+          "title": "Optimize posting schedule",
+          "impact": "high",
+          "category": "schedule",
+          "description": "Your LinkedIn posts perform 43% better between 9-11 AM on Tuesdays and Thursdays. Consider shifting more content to these time slots.",
+          "metricLabel": "+43% engagement",
+          "metricValue": 0.43,
+          "addedToCalendar": false
+        },
+        {
+          "id": "rec_002",
+          "title": "Increase case study content",
+          "impact": "high",
+          "category": "content_mix",
+          "description": "Case studies have 2.4x higher click-through rates than other content types. Publishing one more case study per month could drive significant traffic.",
+          "metricLabel": "2.4x CTR",
+          "metricValue": 2.4,
+          "addedToCalendar": false
+        },
+        {
+          "id": "rec_003",
+          "title": "Focus on Instagram Reels",
+          "impact": "medium",
+          "category": "format",
+          "description": "Your Instagram Reels are generating 3x more engagement than static posts. Consider allocating more creative resources to short-form video.",
+          "metricLabel": "3x engagement",
+          "metricValue": 3.0,
+          "addedToCalendar": false
+        },
+        {
+          "id": "rec_004",
+          "title": "A/B test your CTAs",
+          "impact": "medium",
+          "category": "experimentation",
+          "description": "Posts with question-based CTAs outperform directive CTAs by 28%. Try asking your audience questions to boost interaction.",
+          "metricLabel": "+28% clicks",
+          "metricValue": 0.28,
+          "addedToCalendar": false
+        }
+      ]
+    }
+  }
+}

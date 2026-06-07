@@ -1,0 +1,8 @@
+neo4j-graphrag[experimental]
+google-generativeai
+sentence-transformers
+streamlit
+plotly
+pandas
+python-dotenv
+neo4j
