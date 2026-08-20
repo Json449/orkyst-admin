@@ -91,9 +91,26 @@ def _delta_str(pct: float) -> str:
     return f"{sign}{pct:.1f}%"
 
 
+def _auth_bypass_enabled() -> bool:
+    """
+    Dev-only escape hatch for designing screens without a live admin session.
+
+    Enabled only when ADMIN_AUTH_DISABLED is truthy AND we are not in production.
+    Defaults to off, so normal runs keep requiring a real session.
+    """
+    if os.getenv("ENVIRONMENT") == "production":
+        return False
+    return os.getenv("ADMIN_AUTH_DISABLED", "").strip().lower() in {"1", "true", "yes", "on"}
+
+
+DESIGN_MODE_SESSION = {"sub": "0", "email": "design@local", "role": "admin"}
+
+
 def _require_admin_session(request: Request) -> dict:
     session = verify_session(request.cookies.get(AUTH_COOKIE_NAME))
     if not session:
+        if _auth_bypass_enabled():
+            return dict(DESIGN_MODE_SESSION)
         raise HTTPException(status_code=401, detail="Please sign in to view this dashboard")
     return session
 
