@@ -30,7 +30,6 @@ JSON / Cron API
 ```
 graph-based-data-analytics-pipeline/
 ├── .env                              # Neo4j + Gemini credentials
-├── analytics_sample_responses.json  # Seed data (replaces live API in dev)
 ├── requirements.txt
 ├── pipeline/
 │   ├── __init__.py
@@ -50,9 +49,7 @@ graph-based-data-analytics-pipeline/
 
 ### Step 1 — Data Loader (`pipeline/data_loader.py`)
 
-Reads `analytics_sample_responses.json` and normalises each endpoint's response into flat Python dicts grouped by domain (overview, account, posts, sentiment, trends, recommendations).
-
-**In production** this module is replaced by a cron job that calls the live Orkyst API endpoints and passes the HTTP responses through the same normalisation logic. No other pipeline step needs to change.
+Reads an analytics JSON payload and normalises each endpoint's response into flat Python dicts grouped by domain (overview, account, posts, sentiment, trends, recommendations).
 
 Output: list of `DataRecord(endpoint, payload)` objects.
 
@@ -145,7 +142,7 @@ The resulting graph in Neo4j Aura looks like:
 
 ## Streamlit Dashboard (`dashboard/app.py`)
 
-Four tabs, all data loaded from `analytics_sample_responses.json` in dev (live API in production).
+Four tabs backed by the analytics API.
 
 ### Tab 1 — Overview
 

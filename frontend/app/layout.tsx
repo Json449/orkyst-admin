@@ -1,13 +1,7 @@
 import React from "react"
 import type { Metadata } from 'next'
-import { Inter, Geist_Mono } from 'next/font/google'
 import { Analytics } from '@vercel/analytics/next'
-import orkystMark from '../../../frontend/public/Orkystt.svg'
 import './globals.css'
-import { Geist } from 'next/font/google' // Declare the Geist variable
-
-const _inter = Inter({ subsets: ["latin"] });
-const _geistMono = Geist_Mono({ subsets: ["latin"] });
 
 export const metadata: Metadata = {
   title: 'Orkyst - Analytics Dashboard',
@@ -16,12 +10,12 @@ export const metadata: Metadata = {
   icons: {
     icon: [
       {
-        url: orkystMark.src,
+        url: '/orkyst-icon.svg',
         type: 'image/svg+xml',
       },
     ],
-    shortcut: orkystMark.src,
-    apple: orkystMark.src,
+    shortcut: '/orkyst-icon.svg',
+    apple: '/orkyst-icon.svg',
   },
 }
 

@@ -1,7 +1,6 @@
 """
 Step 1 — Data Loader
-Reads analytics_sample_responses.json and returns normalised domain records.
-In production: replace _load_from_file() with _load_from_api() calls.
+Reads an analytics JSON payload and returns normalised domain records.
 """
 
 import json
