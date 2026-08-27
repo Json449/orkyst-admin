@@ -254,7 +254,7 @@ export type RecommendationsData = {
 
 export type AdminUserStatsData = {
   generatedAt: string;
-  source: "sample" | "live" | string;
+  source: "live" | string;
   lookbackDays: number;
   totals: {
     totalUsers: number;

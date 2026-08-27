@@ -14,17 +14,15 @@ from dotenv import dotenv_values
 
 
 ROOT = Path(__file__).parent.parent
-DEFAULT_ADMIN_DATA = ROOT / "admin_sample_data.json"
 LOOKBACK_DAYS = 30
 PLATFORMS = ("facebook", "instagram", "twitter", "linkedin")
 DEFAULT_EXCLUDED_ADMIN_EMAILS = ("sarfaraz@orkyst.com", "moazzam@orkyst.com")
 
 
 def load_admin_source(
-    json_path: str | Path = DEFAULT_ADMIN_DATA,
     auth_token: str | None = None,
 ) -> dict[str, Any]:
-    """Load live admin data when configured, otherwise use local sample data."""
+    """Load admin data from the configured live source."""
     live_url = os.getenv("ORKYST_ADMIN_STATS_URL")
     if live_url:
         try:
@@ -36,12 +34,12 @@ def load_admin_source(
     if mongo_uri:
         return _load_from_mongo(mongo_uri)
 
-    path = Path(json_path)
-    return json.loads(path.read_text())
+    raise RuntimeError(
+        "Admin stats require ORKYST_ADMIN_STATS_URL or ORKYST_MONGO_URI/MONGODB_CONNECTION_URL"
+    )
 
 
 def load_admin_users_source(
-    json_path: str | Path = DEFAULT_ADMIN_DATA,
     auth_token: str | None = None,
 ) -> dict[str, Any]:
     """Load only user records for the users listing.
@@ -61,8 +59,9 @@ def load_admin_users_source(
     if mongo_uri:
         return _load_users_from_mongo(mongo_uri)
 
-    path = Path(json_path)
-    return json.loads(path.read_text())
+    raise RuntimeError(
+        "Admin users require ORKYST_ADMIN_STATS_URL or ORKYST_MONGO_URI/MONGODB_CONNECTION_URL"
+    )
 
 
 def build_admin_stats(
@@ -75,7 +74,7 @@ def build_admin_stats(
     if "totals" in source and "recentUsers" in source:
         return _with_admin_defaults(source)
 
-    source_label = source.get("source") or ("live" if os.getenv("ORKYST_ADMIN_STATS_URL") else "sample")
+    source_label = source.get("source") or "live"
     users = _without_excluded_admins(source.get("users", []))
     calendars = source.get("calendars", [])
     events = source.get("events", [])
