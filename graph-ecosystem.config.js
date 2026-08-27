@@ -19,8 +19,9 @@ const STREAMLIT = path.join(ROOT, ".venv312", "bin", "streamlit");
 const LOGS = path.join(ROOT, "logs");
 
 const FRONTEND_URL = process.env.ADMIN_APP_FRONTEND_URL || "http://localhost:3002";
+const GRAPH_API_PORT = Number(process.env.GRAPH_API_PORT || 8010);
 const GRAPH_API_INTERNAL_URL =
-  process.env.GRAPH_API_INTERNAL_URL || "http://127.0.0.1:8003";
+  process.env.GRAPH_API_INTERNAL_URL || `http://127.0.0.1:${GRAPH_API_PORT}`;
 
 module.exports = {
   apps: [
@@ -48,7 +49,7 @@ module.exports = {
       name: "graph-analytics-api",
       cwd: ROOT,
       script: PYTHON,
-      args: "-m uvicorn api.server:app --host 127.0.0.1 --port 8003",
+      args: `-m uvicorn api.server:app --host 127.0.0.1 --port ${GRAPH_API_PORT}`,
       interpreter: "none",
       env: {
         ENVIRONMENT: process.env.GRAPH_API_ENVIRONMENT || "development",

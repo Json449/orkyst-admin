@@ -18,7 +18,14 @@ function onboardingColor(percent: number): string {
 }
 
 const HEAD_CLASS =
-  "px-4 py-3.5 text-[11px] font-semibold uppercase tracking-[0.08em] text-[#9CA3AF]";
+  "px-4 py-3.5 text-left text-[11px] font-semibold uppercase tracking-[0.08em] text-[#9CA3AF]";
+
+function joinedDate(value: string): string {
+  const date = new Date(value);
+  return Number.isNaN(date.getTime())
+    ? value
+    : new Intl.DateTimeFormat("en", { month: "short", day: "numeric", year: "numeric" }).format(date);
+}
 
 export function OrganizationsTable({ rows }: { rows: Organization[] }) {
   const router = useRouter();
@@ -29,15 +36,16 @@ export function OrganizationsTable({ rows }: { rows: Organization[] }) {
       style={{ borderColor: DASH.border }}
     >
       <div className="overflow-x-auto">
-        <table className="w-full min-w-[1020px] border-collapse text-left">
+        <table className="w-full min-w-[1240px] border-collapse text-left">
           <thead>
             <tr className="border-b" style={{ borderColor: DASH.border }}>
               <th className={HEAD_CLASS}>Organization</th>
+              <th className={HEAD_CLASS}>Owner Email</th>
               <th className={HEAD_CLASS}>Plan</th>
-              <th className={`${HEAD_CLASS} text-right`}>Users</th>
+              <th className={HEAD_CLASS}>Users</th>
               <th className={HEAD_CLASS}>Status</th>
               <th className={HEAD_CLASS}>Onboarding</th>
-              <th className={`${HEAD_CLASS} text-right`}>Activity</th>
+              <th className={HEAD_CLASS}>Activity</th>
               <th className={HEAD_CLASS}>Joined</th>
               <th className={HEAD_CLASS} aria-label="Actions" />
             </tr>
@@ -81,11 +89,25 @@ export function OrganizationsTable({ rows }: { rows: Organization[] }) {
                     </div>
                   </div>
                 </td>
+                <td className="whitespace-nowrap px-4 py-4 text-[14px]">
+                  {org.ownerEmail ? (
+                    <a
+                      href={`mailto:${org.ownerEmail}`}
+                      onClick={(event) => event.stopPropagation()}
+                      className="font-medium hover:underline"
+                      style={{ color: DASH.accent }}
+                    >
+                      {org.ownerEmail}
+                    </a>
+                  ) : (
+                    <span style={{ color: DASH.muted }}>Not provided</span>
+                  )}
+                </td>
                 <td className="px-4 py-4">
                   <PlanPill plan={org.plan} />
                 </td>
                 <td
-                  className="px-4 py-4 text-right text-[15px]"
+                  className="px-4 py-4 text-left text-[15px]"
                   style={{ color: DASH.heading }}
                 >
                   {org.users}
@@ -110,7 +132,7 @@ export function OrganizationsTable({ rows }: { rows: Organization[] }) {
                   </div>
                 </td>
                 <td
-                  className="whitespace-nowrap px-4 py-4 text-right text-[15px]"
+                  className="whitespace-nowrap px-4 py-4 text-left text-[15px]"
                   style={{ color: DASH.heading }}
                 >
                   {org.posts} posts
@@ -119,7 +141,7 @@ export function OrganizationsTable({ rows }: { rows: Organization[] }) {
                   className="whitespace-nowrap px-4 py-4 text-[15px]"
                   style={{ color: DASH.heading }}
                 >
-                  {org.joined}
+                  {joinedDate(org.joined)}
                 </td>
                 <td className="px-4 py-4">
                   <button

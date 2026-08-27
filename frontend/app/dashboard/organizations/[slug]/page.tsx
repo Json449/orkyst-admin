@@ -1,8 +1,9 @@
+"use client";
+
+import { use, useEffect, useState } from "react";
 import Link from "next/link";
-import { notFound } from "next/navigation";
 import { ChevronRight } from "lucide-react";
-import { organizationBySlug } from "@/components/dashboard/organizations-data";
-import { detailFor } from "@/components/dashboard/org-detail/detail-data";
+import { fetchAdminOrganization, type AdminOrganizationDetailData } from "@/lib/api";
 import { OrgHeader } from "@/components/dashboard/org-detail/org-header";
 import { OrganizationInformation } from "@/components/dashboard/org-detail/organization-information";
 import { OnboardingProgress } from "@/components/dashboard/org-detail/onboarding-progress";
@@ -11,55 +12,38 @@ import { SocialAccounts } from "@/components/dashboard/org-detail/social-account
 import { OrgActivity } from "@/components/dashboard/org-detail/org-activity";
 import { DASH } from "@/components/dashboard/theme";
 
-export default async function OrganizationDetailPage({
-  params,
-}: {
-  params: Promise<{ slug: string }>;
-}) {
-  const { slug } = await params;
-  const org = organizationBySlug(slug);
+export default function OrganizationDetailPage({ params }: { params: Promise<{ slug: string }> }) {
+  const { slug } = use(params);
+  const [data, setData] = useState<AdminOrganizationDetailData | null>(null);
+  const [error, setError] = useState("");
 
-  if (!org) notFound();
+  useEffect(() => {
+    fetchAdminOrganization(slug)
+      .then(setData)
+      .catch((reason: unknown) => setError(reason instanceof Error ? reason.message : "Unable to load organization"));
+  }, [slug]);
 
-  const detail = detailFor(org);
+  if (error) return <div className="rounded-2xl border bg-white px-6 py-14 text-center" style={{ borderColor: DASH.border, color: DASH.heading }}>{error}</div>;
+  if (!data) return <div className="h-72 animate-pulse rounded-2xl bg-[#F3F1F5]" />;
 
+  const { organization: org, detail } = data;
   return (
     <>
-      {/* Breadcrumb */}
-      <nav
-        className="flex items-center gap-2 text-[15px]"
-        style={{ color: DASH.muted }}
-      >
-        <Link href="/dashboard/organizations" className="hover:underline">
-          Organizations
-        </Link>
+      <nav className="flex items-center gap-2 text-[15px]" style={{ color: DASH.muted }}>
+        <Link href="/dashboard/organizations" className="hover:underline">Organizations</Link>
         <ChevronRight className="h-4 w-4" style={{ color: DASH.subtle }} />
         <span>{org.name}</span>
       </nav>
-
-      <div className="mt-4">
-        <OrgHeader org={org} />
-      </div>
-
+      <div className="mt-4"><OrgHeader org={org} /></div>
       <div className="mt-6 space-y-5">
         <div className="grid gap-5 lg:grid-cols-12">
-          <div className="lg:col-span-7">
-            <OrganizationInformation org={org} detail={detail} />
-          </div>
-          <div className="lg:col-span-5">
-            <OnboardingProgress org={org} detail={detail} />
-          </div>
+          <div className="lg:col-span-7"><OrganizationInformation org={org} detail={detail} /></div>
+          <div className="lg:col-span-5"><OnboardingProgress org={org} detail={detail} /></div>
         </div>
-
         <div className="grid gap-5 lg:grid-cols-12">
-          <div className="lg:col-span-7">
-            <UsageSummary detail={detail} />
-          </div>
-          <div className="lg:col-span-5">
-            <SocialAccounts detail={detail} />
-          </div>
+          <div className="lg:col-span-7"><UsageSummary detail={detail} /></div>
+          <div className="lg:col-span-5"><SocialAccounts detail={detail} /></div>
         </div>
-
         <OrgActivity detail={detail} />
       </div>
     </>

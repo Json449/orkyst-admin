@@ -4,6 +4,7 @@ import json
 import os
 from collections import Counter, defaultdict
 from datetime import datetime, timedelta, timezone
+from functools import lru_cache
 from pathlib import Path
 from typing import Any
 from urllib.error import URLError
@@ -34,6 +35,31 @@ def load_admin_source(
     mongo_uri = _orkyst_mongo_uri()
     if mongo_uri:
         return _load_from_mongo(mongo_uri)
+
+    path = Path(json_path)
+    return json.loads(path.read_text())
+
+
+def load_admin_users_source(
+    json_path: str | Path = DEFAULT_ADMIN_DATA,
+    auth_token: str | None = None,
+) -> dict[str, Any]:
+    """Load only user records for the users listing.
+
+    The full analytics loader also reads every calendar and event. That work is
+    useful for aggregate analytics, but made the users table wait tens of
+    seconds for data it never consumes.
+    """
+    live_url = os.getenv("ORKYST_ADMIN_STATS_URL")
+    if live_url:
+        try:
+            return _load_from_url(live_url, auth_token=auth_token)
+        except URLError as exc:
+            raise RuntimeError(f"Failed to load ORKYST_ADMIN_STATS_URL: {exc}") from exc
+
+    mongo_uri = _orkyst_mongo_uri()
+    if mongo_uri:
+        return _load_users_from_mongo(mongo_uri)
 
     path = Path(json_path)
     return json.loads(path.read_text())
@@ -144,12 +170,7 @@ def _load_from_url(url: str, auth_token: str | None = None) -> dict[str, Any]:
 
 
 def _load_from_mongo(uri: str) -> dict[str, Any]:
-    try:
-        from pymongo import MongoClient
-    except ImportError as exc:
-        raise RuntimeError("pymongo is required for ORKYST_MONGO_URI live stats") from exc
-
-    client = MongoClient(uri, serverSelectionTimeoutMS=20_000)
+    client = _mongo_client(uri)
     db_name = os.getenv("ORKYST_MONGO_DB", "test")
     db = client[db_name]
     users = list(db["users"].find())
@@ -163,17 +184,78 @@ def _load_from_mongo(uri: str) -> dict[str, Any]:
     }
 
 
+def _load_users_from_mongo(uri: str) -> dict[str, Any]:
+    client = _mongo_client(uri)
+    db_name = os.getenv("ORKYST_MONGO_DB", "test")
+    projection = {
+        "email": 1,
+        "fullname": 1,
+        "name": 1,
+        "company": 1,
+        "avatar": 1,
+        "provider": 1,
+        "plan": 1,
+        "billingProvider": 1,
+        "subscriptionStatus": 1,
+        "status": 1,
+        "isVerified": 1,
+        "isOnboardingCompleted": 1,
+        "createdAt": 1,
+        "updatedAt": 1,
+        "onboardingCompletedAt": 1,
+        "lastLoginAt": 1,
+        "antLastSsoAt": 1,
+        "subscriptionCurrentPeriodStart": 1,
+        "subscriptionCurrentPeriodEnd": 1,
+        "connectedPlatforms": 1,
+        "facebookConnectionStatus": 1,
+        "instagramConnectionStatus": 1,
+        "twitterConnectionStatus": 1,
+        "linkedinConnectionStatus": 1,
+        "calendarsGeneratedThisMonth": 1,
+        "socialPostsGeneratedThisMonth": 1,
+        "imagesGeneratedThisMonth": 1,
+        "reelUsageThisMonth": 1,
+    }
+    users = list(client[db_name]["users"].find({}, projection))
+    return {"users": [_serialize_mongo_user(user) for user in users], "source": "live"}
+
+
+@lru_cache(maxsize=2)
+def _mongo_client(uri: str):
+    try:
+        from pymongo import MongoClient
+    except ImportError as exc:
+        raise RuntimeError("pymongo is required for ORKYST_MONGO_URI live stats") from exc
+
+    # Reuse the driver's connection pool instead of performing a fresh Atlas
+    # handshake for every filter, page, and search request.
+    return MongoClient(
+        uri,
+        serverSelectionTimeoutMS=10_000,
+        connectTimeoutMS=10_000,
+    )
+
+
 def _orkyst_mongo_uri() -> str | None:
     configured = os.getenv("ORKYST_MONGO_URI") or os.getenv("MONGODB_CONNECTION_URL")
     if configured:
         return configured
 
-    orkyst_env = ROOT.parent / "orkyst" / "backend" / ".env"
-    if not orkyst_env.exists():
-        return None
-
-    values = dotenv_values(orkyst_env)
-    return values.get("MONGODB_CONNECTION_URL")
+    # The admin app lives inside the Orkyst repository, alongside `backend`.
+    # Keep the legacy sibling-repository candidate as a fallback for older
+    # deployments that checked the two projects out next to each other.
+    candidates = (
+        ROOT.parent / "backend" / ".env",
+        ROOT.parent / "orkyst" / "backend" / ".env",
+    )
+    for orkyst_env in candidates:
+        if orkyst_env.exists():
+            values = dotenv_values(orkyst_env)
+            mongo_uri = values.get("MONGODB_CONNECTION_URL")
+            if mongo_uri:
+                return mongo_uri
+    return None
 
 
 def _serialize_mongo_user(user: dict[str, Any]) -> dict[str, Any]:
