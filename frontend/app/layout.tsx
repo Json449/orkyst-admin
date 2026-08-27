@@ -10,12 +10,12 @@ export const metadata: Metadata = {
   icons: {
     icon: [
       {
-        url: '/orkyst-icon.svg',
+        url: '/Orkystt.svg',
         type: 'image/svg+xml',
       },
     ],
-    shortcut: '/orkyst-icon.svg',
-    apple: '/orkyst-icon.svg',
+    shortcut: '/Orkystt.svg',
+    apple: '/Orkystt.svg',
   },
 }
 
