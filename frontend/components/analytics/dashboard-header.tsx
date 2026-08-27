@@ -10,7 +10,7 @@ export function DashboardHeader() {
     <header className="flex flex-col gap-6 md:flex-row md:items-center md:justify-between">
       <div className="flex items-center gap-4">
         <div className="text-primary">
-          <OrkystLogo className="w-10 h-10" />
+          <OrkystLogo className="h-auto w-32" />
         </div>
         <div>
           <h1 className="text-2xl font-semibold tracking-tight text-foreground">

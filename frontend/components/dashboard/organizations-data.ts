@@ -1,6 +1,7 @@
 import type { OrgStatus, Plan } from "./pills";
 
 export type Organization = {
+  id?: string;
   slug: string;
   name: string;
   sector: string;
@@ -9,6 +10,7 @@ export type Organization = {
   emoji: string;
   plan: Plan;
   owner: string;
+  ownerEmail?: string | null;
   users: number;
   status: OrgStatus;
   /** Onboarding completion, 0–100. */
@@ -16,6 +18,7 @@ export type Organization = {
   posts: number;
   images: number;
   joined: string;
+  website?: string | null;
   /** Franchise count, shown inline after the sector for multi-site accounts. */
   franchises?: number;
 };

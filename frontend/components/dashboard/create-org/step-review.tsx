@@ -120,7 +120,7 @@ export function StepReview({
         <thead>
           <tr className="border-b" style={{ borderColor: DASH.border }}>
             <th
-              className="py-3 text-[11px] font-semibold uppercase tracking-[0.08em]"
+              className="py-3 text-left text-[11px] font-semibold uppercase tracking-[0.08em]"
               style={{ color: DASH.subtle }}
             >
               Module
@@ -128,7 +128,7 @@ export function StepReview({
             {PERMISSION_LEVELS.map((level) => (
               <th
                 key={level}
-                className="w-28 py-3 text-center text-[11px] font-semibold uppercase tracking-[0.08em]"
+                className="w-28 py-3 text-left text-[11px] font-semibold uppercase tracking-[0.08em]"
                 style={{ color: DASH.subtle }}
               >
                 {level}
@@ -148,7 +148,7 @@ export function StepReview({
               {PERMISSION_LEVELS.map((level) => {
                 const checked = draft.permissions[module] === level;
                 return (
-                  <td key={level} className="py-4 text-center">
+                  <td key={level} className="py-4 text-left">
                     <label className="inline-flex cursor-pointer">
                       <input
                         type="radio"

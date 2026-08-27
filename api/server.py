@@ -26,6 +26,14 @@ from pipeline.processor import process, CONTENT_TYPE_LABELS, PLATFORM_LABELS
 from pipeline.retriever import fetch_graph_context
 from pipeline.llm_analyst import generate_recommendations
 from pipeline.admin_stats import build_admin_stats
+from pipeline.admin_users import (
+    get_admin_user,
+    list_admin_users,
+    set_admin_user_account_status,
+)
+from pipeline.admin_user_analytics import get_admin_user_analytics
+from pipeline.admin_organizations import get_admin_organization, list_admin_organizations
+from pipeline.admin_recent_activity import list_admin_recent_activity
 from api.admin_auth import (
     SESSION_MAX_AGE_SECONDS,
     authenticate_admin,
@@ -74,6 +82,10 @@ app.add_middleware(
 class LoginPayload(BaseModel):
     email: str
     password: str
+
+
+class AccountStatusPayload(BaseModel):
+    active: bool
 
 
 def _fmt_number(n: int | float) -> str:
@@ -310,6 +322,123 @@ def recommendations_analytics(request: Request, user_id: str = Query(default="lo
 def admin_user_stats(request: Request):
     _require_admin_session(request)
     return build_admin_stats()
+
+
+@app.get("/api/admin/recent-activity")
+def admin_recent_activity(
+    request: Request,
+    limit: int = Query(default=20, ge=1, le=100),
+):
+    _require_admin_session(request)
+    return list_admin_recent_activity(limit=limit)
+
+
+@app.get("/api/admin/users")
+def admin_users(
+    request: Request,
+    query: str = Query(default=""),
+    status: str = Query(default="all"),
+    plan: str = Query(default="all"),
+    provider: str = Query(default="all"),
+    page: int = Query(default=1, ge=1),
+    page_size: int = Query(default=10, ge=1, le=100),
+):
+    _require_admin_session(request)
+    return list_admin_users(
+        query=query,
+        status=status,
+        plan=plan,
+        provider=provider,
+        page=page,
+        page_size=page_size,
+    )
+
+
+@app.get("/api/admin/users/{user_id}")
+def admin_user_detail(request: Request, user_id: str):
+    _require_admin_session(request)
+    user = get_admin_user(user_id)
+    if not user:
+        raise HTTPException(status_code=404, detail="User not found")
+    return user
+
+
+@app.post("/api/admin/users/{user_id}/account-status")
+def admin_user_account_status(
+    request: Request,
+    user_id: str,
+    payload: AccountStatusPayload,
+):
+    _require_admin_session(request)
+    try:
+        user = set_admin_user_account_status(user_id, active=payload.active)
+    except RuntimeError as exc:
+        raise HTTPException(status_code=503, detail=str(exc)) from exc
+    if not user:
+        raise HTTPException(status_code=404, detail="User not found")
+    return user
+
+
+@app.get("/api/admin/users/{user_id}/analytics")
+def admin_user_analytics(
+    request: Request,
+    user_id: str,
+    date_from: str | None = Query(default=None),
+    date_to: str | None = Query(default=None),
+    content_type: str = Query(default="all"),
+    activity_type: str = Query(default="all"),
+    platform: str = Query(default="all"),
+    campaign_id: str = Query(default="all"),
+    gallery_page: int = Query(default=1, ge=1),
+    gallery_page_size: int = Query(default=12, ge=1, le=100),
+    activity_page: int = Query(default=1, ge=1),
+    activity_page_size: int = Query(default=20, ge=1, le=100),
+):
+    _require_admin_session(request)
+    analytics = get_admin_user_analytics(
+        user_id,
+        date_from=date_from,
+        date_to=date_to,
+        content_type=content_type,
+        activity_type=activity_type,
+        platform=platform,
+        campaign_id=campaign_id,
+        gallery_page=gallery_page,
+        gallery_page_size=gallery_page_size,
+        activity_page=activity_page,
+        activity_page_size=activity_page_size,
+    )
+    if not analytics:
+        raise HTTPException(status_code=404, detail="User not found")
+    return analytics
+
+
+@app.get("/api/admin/organizations")
+def admin_organizations(
+    request: Request,
+    query: str = Query(default=""),
+    status: str = Query(default="all"),
+    plan: str = Query(default="all"),
+    page: int = Query(default=1, ge=1),
+    page_size: int = Query(default=10, ge=1, le=100),
+):
+    _require_admin_session(request)
+    return list_admin_organizations(
+        query=query,
+        status=status,
+        plan=plan,
+        page=page,
+        page_size=page_size,
+    )
+
+
+@app.get("/api/admin/organizations/{slug}")
+def admin_organization_detail(request: Request, slug: str):
+    _require_admin_session(request)
+    organization = get_admin_organization(slug)
+    if not organization:
+        raise HTTPException(status_code=404, detail="Organization not found")
+    return organization
 
 
 @app.get("/health")

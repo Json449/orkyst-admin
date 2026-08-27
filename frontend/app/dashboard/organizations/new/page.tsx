@@ -82,14 +82,14 @@ export default function CreateOrganizationPage() {
       <PageHeading />
 
       <div
-        className="mt-7 rounded-2xl border bg-white p-8"
+        className="mt-5 rounded-2xl border bg-white p-4 sm:mt-7 sm:p-8"
         style={{ borderColor: DASH.border }}
       >
         <WizardStepper steps={CREATE_ORG_STEPS} current={step} />
 
         <div
           className={
-            showSideRail ? "mt-10 grid gap-10 lg:grid-cols-3" : "mx-auto mt-10 max-w-4xl"
+            showSideRail ? "mt-6 grid gap-6 lg:mt-10 lg:gap-10 lg:grid-cols-3" : "mx-auto mt-6 max-w-4xl lg:mt-10"
           }
         >
           <section className={showSideRail ? "lg:col-span-2" : undefined}>
@@ -168,7 +168,7 @@ function PageHeading() {
         </nav>
 
         <h1
-          className="mt-2 text-[36px] font-bold leading-tight tracking-tight"
+          className="mt-2 text-3xl font-bold leading-tight tracking-tight sm:text-[36px]"
           style={{ color: DASH.heading }}
         >
           Create Organization

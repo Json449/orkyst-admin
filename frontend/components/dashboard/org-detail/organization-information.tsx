@@ -37,7 +37,7 @@ export function OrganizationInformation({
   detail: OrgDetail;
 }) {
   const plan = planById(org.plan);
-  const domain = `${org.slug.replace(/-/g, "")}.com`;
+  const website = org.website || "";
 
   return (
     <div
@@ -75,17 +75,35 @@ export function OrganizationInformation({
 
           <Field label="Industry">{org.industry}</Field>
 
+          <Field label="Owner Email">
+            {org.ownerEmail ? (
+              <a
+                href={`mailto:${org.ownerEmail}`}
+                className="font-medium hover:underline"
+                style={{ color: DASH.accent }}
+              >
+                {org.ownerEmail}
+              </a>
+            ) : (
+              <span style={{ color: DASH.muted }}>Not provided</span>
+            )}
+          </Field>
+
           <Field label="Website">
-            <a
-              href={`https://${org.slug === "lotsa-pizza" ? "lotsapizza.com.ph" : domain}`}
-              target="_blank"
-              rel="noreferrer"
-              className="inline-flex items-center gap-1 font-medium hover:underline"
-              style={{ color: DASH.accent }}
-            >
-              {org.slug === "lotsa-pizza" ? "lotsapizza.com.ph" : domain}
-              <ArrowUpRight className="h-4 w-4" />
-            </a>
+            {website ? (
+              <a
+                href={website.startsWith("http") ? website : `https://${website}`}
+                target="_blank"
+                rel="noreferrer"
+                className="inline-flex items-center gap-1 font-medium hover:underline"
+                style={{ color: DASH.accent }}
+              >
+                {website.replace(/^https?:\/\//, "").replace(/\/$/, "")}
+                <ArrowUpRight className="h-4 w-4" />
+              </a>
+            ) : (
+              <span style={{ color: DASH.muted }}>Not provided</span>
+            )}
           </Field>
 
           <Field label="Country">{org.country}</Field>

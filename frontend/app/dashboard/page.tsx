@@ -1,6 +1,6 @@
 "use client";
 
-import { ChevronDown } from "lucide-react";
+import { useEffect, useState } from "react";
 import { StatCards } from "@/components/dashboard/stat-cards";
 import { UserGrowthCard } from "@/components/dashboard/user-growth-card";
 import { ContentGeneratedCard } from "@/components/dashboard/content-generated-card";
@@ -8,59 +8,36 @@ import { OnboardingFunnelCard } from "@/components/dashboard/onboarding-funnel-c
 import { RecentActivityCard } from "@/components/dashboard/recent-activity-card";
 import { TopOrganizationsCard } from "@/components/dashboard/top-organizations-card";
 import { DASH } from "@/components/dashboard/theme";
+import { fetchAdminOrganizations, fetchAdminRecentActivity, fetchAdminUserStats, fetchAuthMe, type AdminOrganizationsData, type AdminRecentActivityData, type AdminUserStatsData } from "@/lib/api";
 
-/**
- * Overview Dashboard.
- *
- * Figures are currently the approved design values; see the endpoints in
- * `lib/api.ts` to wire live data.
- */
 export default function DashboardPage() {
-  return (
-    <>
-      {/* Greeting */}
-      <div className="flex flex-wrap items-start justify-between gap-4">
-        <div>
-          <h1
-            className="text-[32px] font-bold leading-tight tracking-tight"
-            style={{ color: DASH.heading }}
-          >
-            Good morning, John <span aria-hidden>👋</span>
-          </h1>
-          <p className="mt-1.5 text-[15px]" style={{ color: DASH.muted }}>
-            Here’s what’s happening across Orkyst.
-          </p>
-        </div>
-        <button
-          className="flex shrink-0 items-center gap-2 rounded-xl border bg-white px-4 py-2.5 text-sm font-medium transition-colors hover:bg-[#FAFAFB]"
-          style={{ borderColor: DASH.border, color: DASH.heading }}
-        >
-          Last 30 days
-          <ChevronDown className="h-4 w-4" style={{ color: DASH.muted }} />
-        </button>
-      </div>
+  const [stats, setStats] = useState<AdminUserStatsData | null>(null);
+  const [organizations, setOrganizations] = useState<AdminOrganizationsData | null>(null);
+  const [recentActivity, setRecentActivity] = useState<AdminRecentActivityData | null>(null);
+  const [adminName, setAdminName] = useState("Admin");
+  const [error, setError] = useState("");
+  const [reloadKey, setReloadKey] = useState(0);
 
-      <div className="mt-7 space-y-5">
-        <StatCards />
+  useEffect(() => {
+    let active = true;
+    setError("");
+    Promise.all([fetchAdminUserStats(), fetchAdminOrganizations({ pageSize: 100 }), fetchAdminRecentActivity(), fetchAuthMe()])
+      .then(([statsData, organizationData, recentActivityData, auth]) => {
+        if (!active) return;
+        setStats(statsData);
+        setOrganizations(organizationData);
+        setRecentActivity(recentActivityData);
+        const localPart = auth.email?.split("@")[0].split(/[._-]/)[0];
+        if (localPart) setAdminName(localPart.charAt(0).toUpperCase() + localPart.slice(1));
+      })
+      .catch((reason: unknown) => active && setError(reason instanceof Error ? reason.message : "Unable to load dashboard"));
+    return () => { active = false; };
+  }, [reloadKey]);
 
-        {/* Growth + content mix */}
-        <div className="grid gap-5 lg:grid-cols-3">
-          <div className="lg:col-span-2">
-            <UserGrowthCard />
-          </div>
-          <ContentGeneratedCard />
-        </div>
+  if (error) return <div className="rounded-2xl border bg-white px-6 py-16 text-center" style={{ borderColor: DASH.border }}><p className="font-semibold" style={{ color: DASH.heading }}>Dashboard data could not be loaded</p><p className="mt-1 text-sm" style={{ color: DASH.muted }}>{error}</p><button onClick={() => setReloadKey((value) => value + 1)} className="mt-5 rounded-xl px-4 py-2 text-sm font-semibold text-white" style={{ backgroundColor: DASH.plum }}>Try again</button></div>;
 
-        {/* Funnel + activity */}
-        <div className="grid gap-5 lg:grid-cols-3">
-          <div className="lg:col-span-2">
-            <OnboardingFunnelCard />
-          </div>
-          <RecentActivityCard />
-        </div>
+  if (!stats || !organizations || !recentActivity) return <div className="space-y-5"><div className="h-20 animate-pulse rounded-2xl bg-[#F3F1F5]" /><div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-4">{[0, 1, 2, 3].map((item) => <div key={item} className="h-40 animate-pulse rounded-2xl bg-[#F3F1F5]" />)}</div><div className="h-80 animate-pulse rounded-2xl bg-[#F3F1F5]" /></div>;
 
-        <TopOrganizationsCard />
-      </div>
-    </>
-  );
+  const activeOrganizations = organizations.items.filter((org) => org.status === "Active").length;
+  return <><div className="flex flex-wrap items-start justify-between gap-4"><div><h1 className="text-[32px] font-bold leading-tight tracking-tight" style={{ color: DASH.heading }}>Welcome, {adminName} <span aria-hidden>👋</span></h1><p className="mt-1.5 text-[15px]" style={{ color: DASH.muted }}>Live activity across Orkyst · last {stats.lookbackDays} days</p></div><span className="rounded-xl border bg-white px-4 py-2.5 text-sm font-medium" style={{ borderColor: DASH.border, color: DASH.heading }}>Live data</span></div><div className="mt-7 space-y-5"><StatCards stats={stats} organizationCount={organizations.statusCounts.all} activeOrganizationCount={activeOrganizations} /><div className="grid gap-5 lg:grid-cols-3"><div className="lg:col-span-2"><UserGrowthCard stats={stats} /></div><ContentGeneratedCard stats={stats} /></div><div className="grid gap-5 lg:grid-cols-3"><div className="lg:col-span-2"><OnboardingFunnelCard stats={stats} /></div><RecentActivityCard activity={recentActivity.items} /></div><TopOrganizationsCard organizations={organizations.items} /></div></>;
 }

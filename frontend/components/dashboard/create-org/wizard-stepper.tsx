@@ -26,7 +26,7 @@ export function WizardStepper({
   current: number;
 }) {
   return (
-    <ol className="flex items-center gap-4">
+    <ol className="flex items-center gap-4 overflow-x-auto pb-2">
       {steps.map((label, index) => {
         const stepNumber = index + 1;
         const done = stepNumber < current;

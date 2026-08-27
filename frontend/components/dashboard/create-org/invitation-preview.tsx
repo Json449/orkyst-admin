@@ -37,16 +37,8 @@ export function InvitationPreview({ draft }: { draft: OrgDraft }) {
         className="border-t px-6 py-6 text-center"
         style={{ borderColor: DASH.border }}
       >
-        <div className="flex items-center justify-center gap-2">
-          <span
-            className="flex h-6 w-6 items-center justify-center rounded-md text-white"
-            style={{ backgroundColor: DASH.plum }}
-          >
-            <OrkystLogo className="h-4 w-4" />
-          </span>
-          <span className="text-[16px] font-bold" style={{ color: DASH.heading }}>
-            orkyst
-          </span>
+        <div className="flex items-center justify-center">
+          <OrkystLogo className="h-auto w-24" />
         </div>
 
         <p

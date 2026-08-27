@@ -2,16 +2,13 @@
 
 import Link from "next/link";
 import { usePathname } from "next/navigation";
+import { useState } from "react";
 import {
   Building2,
-  ChevronDown,
   LayoutGrid,
-  Layers,
-  LineChart,
-  Network,
-  Rocket,
-  Settings,
+  Menu,
   Users,
+  X,
 } from "lucide-react";
 import { OrkystLogo } from "@/components/orkyst-logo";
 import { DASH } from "./theme";
@@ -26,14 +23,8 @@ type NavItem = {
 const PLATFORM_NAV: NavItem[] = [
   { label: "Overview", icon: LayoutGrid, href: "/dashboard" },
   { label: "Organizations", icon: Building2, href: "/dashboard/organizations" },
-  { label: "Users", icon: Users, href: "#" },
-  { label: "Command Centers", icon: Network, href: "#" },
-  { label: "Onboarding", icon: Rocket, href: "#", badge: "3" },
-  { label: "Analytics", icon: LineChart, href: "#" },
-  { label: "Operations", icon: Layers, href: "#" },
+  { label: "Users", icon: Users, href: "/dashboard/users" },
 ];
-
-const CONFIG_NAV: NavItem[] = [{ label: "Settings", icon: Settings, href: "#" }];
 
 function SectionLabel({ children }: { children: string }) {
   return (
@@ -102,26 +93,16 @@ export function DashboardSidebar() {
 
   return (
     <aside
-      className="fixed inset-y-0 left-0 flex w-64 flex-col border-r bg-white"
+      className="fixed inset-y-0 left-0 hidden w-64 flex-col border-r bg-white md:flex"
       style={{ borderColor: DASH.border }}
     >
       {/* Brand */}
       <div
-        className="flex items-center gap-3 border-b px-6 py-5"
+        className="flex items-center justify-between gap-3 border-b px-6 py-5"
         style={{ borderColor: DASH.border }}
       >
-        <div
-          className="flex h-10 w-10 items-center justify-center rounded-xl text-white"
-          style={{ backgroundColor: DASH.plum }}
-        >
-          <OrkystLogo className="h-6 w-6" />
-        </div>
-        <div className="leading-tight">
-          <div className="text-lg font-bold text-[#111827]">orkyst</div>
-          <div className="text-[11px] font-semibold uppercase tracking-[0.12em] text-[#9CA3AF]">
-            Admin
-          </div>
-        </div>
+        <OrkystLogo className="h-auto w-[132px]" />
+        <span className="rounded-full bg-[#FCE9F1] px-2.5 py-1 text-[10px] font-bold uppercase tracking-[0.12em] text-[#7A0860]">Admin</span>
       </div>
 
       {/* Navigation */}
@@ -132,35 +113,40 @@ export function DashboardSidebar() {
             <NavLink key={item.label} item={item} active={isActive(item.href)} />
           ))}
         </div>
-
-        <SectionLabel>Configuration</SectionLabel>
-        <div className="space-y-0.5">
-          {CONFIG_NAV.map((item) => (
-            <NavLink key={item.label} item={item} active={isActive(item.href)} />
-          ))}
-        </div>
       </nav>
-
-      {/* Account */}
-      <div className="border-t px-4 py-4" style={{ borderColor: DASH.border }}>
-        <button className="flex w-full items-center gap-3 rounded-lg px-2 py-1.5 text-left transition-colors hover:bg-[#F5F3F7]">
-          <span
-            className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full text-xs font-semibold text-white"
-            style={{ backgroundColor: DASH.plum }}
-          >
-            JD
-          </span>
-          <span className="min-w-0 flex-1 leading-tight">
-            <span className="block truncate text-sm font-semibold text-[#111827]">
-              John Doe
-            </span>
-            <span className="block truncate text-xs text-[#9CA3AF]">
-              Platform Administrator
-            </span>
-          </span>
-          <ChevronDown className="h-4 w-4 shrink-0 text-[#9CA3AF]" />
-        </button>
-      </div>
     </aside>
+  );
+}
+
+/** Collapsible navigation for phones; the permanent sidebar remains desktop-only. */
+export function MobileDashboardNav() {
+  const pathname = usePathname();
+  const [open, setOpen] = useState(false);
+  const isActive = (href: string) => href === "/dashboard" ? pathname === href : pathname === href || pathname.startsWith(`${href}/`);
+
+  return (
+    <div className="md:hidden">
+      <button type="button" aria-label="Open navigation" aria-expanded={open} onClick={() => setOpen(true)} className="flex h-10 w-10 items-center justify-center rounded-lg border bg-white" style={{ borderColor: DASH.border, color: DASH.heading }}>
+        <Menu className="h-5 w-5" />
+      </button>
+      {open && (
+        <div className="fixed inset-0 z-50" role="dialog" aria-modal="true" aria-label="Navigation menu">
+          <button type="button" aria-label="Close navigation" className="absolute inset-0 bg-[#180A16]/35" onClick={() => setOpen(false)} />
+          <aside className="relative flex h-full w-[min(19rem,86vw)] flex-col bg-white shadow-2xl" style={{ borderColor: DASH.border }}>
+            <div className="flex items-center justify-between border-b px-5 py-4" style={{ borderColor: DASH.border }}>
+              <div className="flex items-center gap-2"><OrkystLogo className="h-auto w-28" /><span className="rounded-full bg-[#FCE9F1] px-2 py-1 text-[11px] font-bold uppercase tracking-[0.1em] text-[#7A0860]">Admin</span></div>
+              <button type="button" aria-label="Close navigation" onClick={() => setOpen(false)} className="rounded-lg p-2 hover:bg-[#F5F3F7]" style={{ color: DASH.heading }}><X className="h-5 w-5" /></button>
+            </div>
+            <nav className="space-y-1 p-3" aria-label="Mobile navigation">
+              {PLATFORM_NAV.map((item) => {
+                const Icon = item.icon;
+                const active = isActive(item.href);
+                return <Link key={item.href} href={item.href} onClick={() => setOpen(false)} className="flex items-center gap-3 rounded-xl px-3 py-3 text-sm font-semibold" style={{ backgroundColor: active ? DASH.pink : "transparent", color: active ? DASH.plum : DASH.heading }}><Icon className="h-5 w-5" />{item.label}</Link>;
+              })}
+            </nav>
+          </aside>
+        </div>
+      )}
+    </div>
   );
 }
