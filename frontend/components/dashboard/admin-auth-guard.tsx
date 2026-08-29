@@ -1,7 +1,8 @@
 "use client";
 
 import type { ReactNode } from "react";
-import { useEffect, useState } from "react";
+import { useEffect } from "react";
+import { useQuery } from "@tanstack/react-query";
 import { usePathname, useRouter } from "next/navigation";
 import { OrkystLogo } from "@/components/orkyst-logo";
 import { fetchAuthMe } from "@/lib/api";
@@ -9,29 +10,18 @@ import { fetchAuthMe } from "@/lib/api";
 export function AdminAuthGuard({ children }: { children: ReactNode }) {
   const pathname = usePathname();
   const router = useRouter();
-  const [authenticated, setAuthenticated] = useState(false);
+  const authQuery = useQuery({
+    queryKey: ["auth", "session"],
+    queryFn: fetchAuthMe,
+    staleTime: 60_000,
+    retry: false,
+  });
+  const authenticated = authQuery.data?.authenticated === true;
 
   useEffect(() => {
-    let active = true;
-
-    fetchAuthMe()
-      .then((session) => {
-        if (!active) return;
-        if (!session.authenticated) {
-          const next = encodeURIComponent(pathname || "/dashboard");
-          router.replace(`/login?next=${next}`);
-          return;
-        }
-        setAuthenticated(true);
-      })
-      .catch(() => {
-        if (active) router.replace(`/login?next=${encodeURIComponent(pathname || "/dashboard")}`);
-      });
-
-    return () => {
-      active = false;
-    };
-  }, [pathname, router]);
+    if (authQuery.isLoading) return;
+    if (!authenticated) router.replace(`/login?next=${encodeURIComponent(pathname || "/dashboard")}`);
+  }, [authenticated, authQuery.isLoading, pathname, router]);
 
   if (!authenticated) {
     return (

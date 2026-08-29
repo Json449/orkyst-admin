@@ -1,7 +1,8 @@
 "use client";
 
 import Link from "next/link";
-import { useEffect, useState } from "react";
+import { useState } from "react";
+import { useQuery } from "@tanstack/react-query";
 import { useParams } from "next/navigation";
 import {
   BarChart3,
@@ -109,49 +110,28 @@ const platformStyle: Record<string, { label: string; tone: string; text: string 
 
 export default function UserDetailPage() {
   const params = useParams<{ id: string }>();
-  const [user, setUser] = useState<AdminUserDetail | null>(null);
-  const [loading, setLoading] = useState(true);
-  const [error, setError] = useState("");
-  const [reloadKey, setReloadKey] = useState(0);
-
-  useEffect(() => {
-    let active = true;
-    let inFlight = false;
-    const load = (showLoading: boolean) => {
-      if (inFlight) return;
-      inFlight = true;
-      if (showLoading) setLoading(true);
-      setError("");
-      fetchAdminUser(params.id)
-        .then((result) => active && setUser(result))
-        .catch((reason: unknown) => active && setError(reason instanceof Error ? reason.message : "Unable to load user"))
-        .finally(() => {
-          inFlight = false;
-          if (active && showLoading) setLoading(false);
-        });
-    };
-    load(true);
-    const interval = window.setInterval(() => {
-      if (document.visibilityState === "visible") load(false);
-    }, 30_000);
-    return () => {
-      active = false;
-      window.clearInterval(interval);
-    };
-  }, [params.id, reloadKey]);
+  const userQuery = useQuery({
+    queryKey: ["admin", "user", params.id],
+    queryFn: () => fetchAdminUser(params.id),
+    refetchInterval: 30_000,
+    refetchIntervalInBackground: false,
+  });
+  const user = userQuery.data;
+  const loading = userQuery.isLoading;
+  const error = userQuery.error instanceof Error ? userQuery.error.message : "Unable to load user";
 
   if (loading && !user) {
     return <div className="space-y-5"><div className="h-5 w-64 animate-pulse rounded bg-[#EDEAF0]" /><div className="h-28 animate-pulse rounded-2xl bg-white" /><div className="grid gap-5 lg:grid-cols-2"><div className="h-80 animate-pulse rounded-2xl bg-white" /><div className="h-80 animate-pulse rounded-2xl bg-white" /></div></div>;
   }
 
-  if (error || !user) {
+  if (userQuery.isError || !user) {
     return (
       <div className="rounded-2xl border bg-white px-6 py-16 text-center" style={{ borderColor: DASH.border }}>
         <p className="text-lg font-bold" style={{ color: DASH.heading }}>User could not be loaded</p>
         <p className="mt-2 text-sm" style={{ color: DASH.muted }}>{error || "User not found"}</p>
         <div className="mt-6 flex justify-center gap-3">
           <Link href="/dashboard/users" className="rounded-xl border px-4 py-2 text-sm font-semibold" style={{ borderColor: DASH.border, color: DASH.heading }}>Back to users</Link>
-          <button onClick={() => setReloadKey((value) => value + 1)} className="flex items-center gap-2 rounded-xl px-4 py-2 text-sm font-semibold text-white" style={{ backgroundColor: DASH.plum }}><RefreshCw className="h-4 w-4" /> Try again</button>
+          <button onClick={() => userQuery.refetch()} className="flex items-center gap-2 rounded-xl px-4 py-2 text-sm font-semibold text-white" style={{ backgroundColor: DASH.plum }}><RefreshCw className="h-4 w-4" /> Try again</button>
         </div>
       </div>
     );

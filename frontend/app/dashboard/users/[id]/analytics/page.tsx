@@ -1,8 +1,10 @@
 "use client";
 
 import Link from "next/link";
-import { useEffect, useMemo, useState } from "react";
+import { useMemo, useState } from "react";
+import { useQuery } from "@tanstack/react-query";
 import { useParams } from "next/navigation";
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import {
   ArrowLeft,
   BarChart3,
@@ -74,6 +76,8 @@ const EMPTY_FILTERS: Filters = {
   platform: "all",
   campaignId: "all",
 };
+
+const ACTIVITY_PAGE_SIZE = 20;
 
 const PANEL_CLASS =
   "overflow-hidden rounded-xl border bg-white shadow-[0_5px_18px_rgba(39,23,52,0.025)]";
@@ -476,51 +480,54 @@ function TopCampaigns({ activities, gallery }: { activities: AdminUserAnalyticsA
 
 function ActivityTimeline({ data, onPage }: { data: AdminUserAnalyticsData; onPage: (page: number) => void }) {
   return (
-    <section className={`${PANEL_CLASS} min-w-0`} data-testid="activity-timeline-panel">
+    <section id="activity-timeline" className={`${PANEL_CLASS} min-w-0 scroll-mt-4`} data-testid="activity-timeline-panel">
       <div className="flex items-start justify-between gap-3 px-4 pb-2 pt-4"><div><h2 className="text-[13px] font-bold" style={{ color: DASH.heading }}>Activity Timeline</h2><p className="mt-0.5 text-[10px]" style={{ color: DASH.muted }}>Every recorded action for this user</p></div><span className="shrink-0 rounded-full bg-[#F8EAF4] px-2.5 py-1 text-[11px] font-bold" style={{ color: DASH.plum }}>{data.activityPagination.total.toLocaleString()} activities</span></div>
-      {data.activity.length ? <ol className="relative space-y-3 px-4 py-3"><span className="absolute bottom-5 left-[91px] top-5 w-px" style={{ backgroundColor: DASH.border }} aria-hidden />{data.activity.map((item) => <ActivityRow key={item.id} item={item} />)}</ol> : <p className="px-5 py-12 text-center text-[11px]" style={{ color: DASH.muted }}>No activity matches these filters.</p>}
+      {data.activity.length ? <ol className="relative space-y-3 px-4 py-3"><span className="absolute bottom-5 left-[91px] top-5 w-px" style={{ backgroundColor: DASH.border }} aria-hidden />{data.activity.map((item) => <ActivityRow key={item.id} item={item} userId={data.user.id} />)}</ol> : <p className="px-5 py-12 text-center text-[11px]" style={{ color: DASH.muted }}>No activity matches these filters.</p>}
       <Pagination {...data.activityPagination} onPage={onPage} compact />
     </section>
   );
 }
 
-function ActivityRow({ item }: { item: AdminUserAnalyticsActivity }) {
+function ActivityRow({ item, userId }: { item: AdminUserAnalyticsActivity; userId: string }) {
   const isPublish = item.activityType.includes("published");
   const isFailed = item.activityType.includes("failed");
   return (
     <li className="relative grid grid-cols-[56px_14px_minmax(0,1fr)] items-start gap-2">
       <time className="pt-1 text-right text-[11px]" style={{ color: DASH.muted }}>{formatTime(item.createdAt)}</time>
       <span className="relative z-10 mt-1.5 h-2 w-2 rounded-full ring-[3px] ring-white" style={{ backgroundColor: isFailed ? "#DC2626" : isPublish ? "#3974F6" : DASH.plum }} />
-      <div className="min-w-0"><div className="flex items-center gap-2"><ActivityIcon activityType={item.activityType} platform={item.platform} /><div className="min-w-0"><p className="truncate text-[11px] font-bold" style={{ color: DASH.heading }}>{item.title}</p><p className="mt-0.5 truncate text-[11px]" style={{ color: DASH.muted }}>{item.description || titleCase(item.activityType)}</p></div></div></div>
+      <Link href={`/dashboard/users/${encodeURIComponent(userId)}/analytics/activity/${encodeURIComponent(item.id)}`} className="min-w-0 rounded-lg px-1 py-0.5 transition hover:bg-[#FAF7FB]">
+        <div className="flex items-center gap-2">
+          <ActivityIcon activityType={item.activityType} platform={item.platform} />
+          <div className="min-w-0">
+            <p className="truncate text-[11px] font-bold" style={{ color: DASH.heading }}>{item.title}</p>
+            <p className="mt-0.5 truncate text-[11px]" style={{ color: DASH.muted }}>{item.description || titleCase(item.activityType)}</p>
+          </div>
+        </div>
+      </Link>
     </li>
   );
 }
 
 export default function UserAnalyticsPage() {
   const params = useParams<{ id: string }>();
-  const [data, setData] = useState<AdminUserAnalyticsData | null>(null);
-  const [filterOptions, setFilterOptions] = useState<AdminUserAnalyticsData["filterOptions"] | null>(null);
   const [filters, setFilters] = useState<Filters>(EMPTY_FILTERS);
   const [galleryPage, setGalleryPage] = useState(1);
   const [activityPage, setActivityPage] = useState(1);
-  const [loading, setLoading] = useState(true);
-  const [error, setError] = useState("");
-  const [reloadKey, setReloadKey] = useState(0);
-
-  useEffect(() => {
-    let active = true;
-    setLoading(true);
-    setError("");
-    fetchAdminUserAnalytics(params.id, { ...filters, galleryPage, galleryPageSize: 6, activityPage, activityPageSize: 100 })
-      .then((result) => {
-        if (!active) return;
-        setData(result);
-        setFilterOptions((current) => current || result.filterOptions);
-      })
-      .catch((reason: unknown) => active && setError(reason instanceof Error ? reason.message : "Unable to load user analytics"))
-      .finally(() => active && setLoading(false));
-    return () => { active = false; };
-  }, [params.id, filters, galleryPage, activityPage, reloadKey]);
+  const [activeTab, setActiveTab] = useState<"overview" | "media" | "activity">("overview");
+  const analyticsQuery = useQuery({
+    queryKey: ["admin", "user", params.id, "analytics", { filters, galleryPage, activityPage }],
+    queryFn: () => fetchAdminUserAnalytics(params.id, {
+      ...filters,
+      galleryPage,
+      galleryPageSize: 6,
+      activityPage,
+      activityPageSize: ACTIVITY_PAGE_SIZE,
+    }),
+    placeholderData: (previousData) => previousData,
+  });
+  const data = analyticsQuery.data;
+  const loading = analyticsQuery.isFetching;
+  const error = analyticsQuery.error instanceof Error ? analyticsQuery.error.message : "Unable to load user analytics";
 
   function updateFilter(key: keyof Filters, value: string) {
     setFilters((current) => ({ ...current, [key]: value }));
@@ -529,9 +536,9 @@ export default function UserAnalyticsPage() {
   }
 
   if (loading && !data) return <div className="space-y-3"><div className="h-5 w-56 max-w-full animate-pulse rounded bg-[#EDEAF0]" /><div className="h-24 animate-pulse rounded-xl bg-white" /><div className="h-24 animate-pulse rounded-xl bg-white" /><div className="grid grid-cols-2 gap-3 xl:grid-cols-6">{[0, 1, 2, 3, 4, 5].map((item) => <div key={item} className="h-28 animate-pulse rounded-xl bg-white" />)}</div><div className="h-72 animate-pulse rounded-xl bg-white" /></div>;
-  if (error || !data) return <div className="rounded-2xl border bg-white px-6 py-16 text-center" style={{ borderColor: DASH.border }}><p className="text-lg font-bold" style={{ color: DASH.heading }}>User analytics could not be loaded</p><p className="mt-2 text-sm" style={{ color: DASH.muted }}>{error || "User not found"}</p><div className="mt-6 flex justify-center gap-3"><Link href={`/dashboard/users/${params.id}`} className="rounded-xl border px-4 py-2 text-sm font-semibold" style={{ borderColor: DASH.border, color: DASH.heading }}>Back to profile</Link><button onClick={() => setReloadKey((value) => value + 1)} className="flex items-center gap-2 rounded-xl px-4 py-2 text-sm font-semibold text-white" style={{ backgroundColor: DASH.plum }}><RefreshCw className="h-4 w-4" />Try again</button></div></div>;
+  if (analyticsQuery.isError || !data) return <div className="rounded-2xl border bg-white px-6 py-16 text-center" style={{ borderColor: DASH.border }}><p className="text-lg font-bold" style={{ color: DASH.heading }}>User analytics could not be loaded</p><p className="mt-2 text-sm" style={{ color: DASH.muted }}>{error || "User not found"}</p><div className="mt-6 flex justify-center gap-3"><Link href={`/dashboard/users/${params.id}`} className="rounded-xl border px-4 py-2 text-sm font-semibold" style={{ borderColor: DASH.border, color: DASH.heading }}>Back to profile</Link><button onClick={() => analyticsQuery.refetch()} className="flex items-center gap-2 rounded-xl px-4 py-2 text-sm font-semibold text-white" style={{ backgroundColor: DASH.plum }}><RefreshCw className="h-4 w-4" />Try again</button></div></div>;
 
-  const options = filterOptions || data.filterOptions;
+  const options = data.filterOptions;
   const timeline = data.contentTimeline;
   const metricValues = {
     posts: timeline.map((item) => item.posts),
@@ -595,18 +602,48 @@ export default function UserAnalyticsPage() {
         </div>
       </section>
 
-      <div className="mt-2.5 grid grid-cols-2 gap-2.5 md:grid-cols-3 xl:grid-cols-6">{metrics.map((metric) => <MetricCard key={metric.key} metric={metric} />)}</div>
+      <Tabs
+        value={activeTab}
+        onValueChange={(value) => setActiveTab(value as "overview" | "media" | "activity")}
+        className="mt-2.5 gap-2.5"
+      >
+        <div className="flex flex-wrap items-center justify-between gap-3">
+          <TabsList className="grid h-10 w-full max-w-[540px] grid-cols-3 rounded-xl bg-[#F4EEF4] p-1">
+            <TabsTrigger value="overview" className="text-[11px]">
+              <BarChart3 className="h-3.5 w-3.5" />
+              Overview
+            </TabsTrigger>
+            <TabsTrigger value="media" className="text-[11px]">
+              <ImageIcon className="h-3.5 w-3.5" />
+              Media
+            </TabsTrigger>
+            <TabsTrigger value="activity" className="text-[11px]">
+              <Clock3 className="h-3.5 w-3.5" />
+              Activity Timeline
+            </TabsTrigger>
+          </TabsList>
+        </div>
 
-      <div className="mt-2.5 grid items-stretch gap-2.5 lg:grid-cols-3">
-        <ActivityOverview metrics={metrics} />
-        <PlatformDistribution activities={data.activity} gallery={data.gallery} />
-        <TopCampaigns activities={data.activity} gallery={data.gallery} />
-      </div>
+        <TabsContent value="overview" className="mt-0 space-y-2.5">
+          <div className="grid grid-cols-2 gap-2.5 md:grid-cols-3 xl:grid-cols-6">{metrics.map((metric) => <MetricCard key={metric.key} metric={metric} />)}</div>
+          <div className="grid items-stretch gap-2.5 lg:grid-cols-3">
+            <ActivityOverview metrics={metrics} />
+            <PlatformDistribution activities={data.activity} gallery={data.gallery} />
+            <TopCampaigns activities={data.activity} gallery={data.gallery} />
+          </div>
+        </TabsContent>
 
-      <div className="mt-2.5 space-y-2.5">
-        <ContentGallery data={data} activeType={filters.contentType} onType={(value) => updateFilter("contentType", value)} onPage={setGalleryPage} />
-        <ActivityTimeline data={data} onPage={setActivityPage} />
-      </div>
+        <TabsContent value="media" className="mt-0">
+          <ContentGallery data={data} activeType={filters.contentType} onType={(value) => updateFilter("contentType", value)} onPage={setGalleryPage} />
+        </TabsContent>
+
+        <TabsContent value="activity" className="mt-0">
+          <ActivityTimeline data={data} onPage={(page) => {
+            setActivityPage(page);
+            document.getElementById("activity-timeline")?.scrollIntoView({ behavior: "smooth", block: "start" });
+          }} />
+        </TabsContent>
+      </Tabs>
     </div>
   );
 }

@@ -1,6 +1,7 @@
 "use client";
 
 import { FormEvent, useEffect, useState } from "react";
+import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { useRouter } from "next/navigation";
 import { ArrowRight, Eye, EyeOff, LockKeyhole, Mail, ShieldCheck } from "lucide-react";
 import { OrkystLogo } from "@/components/orkyst-logo";
@@ -14,19 +15,25 @@ export default function LoginPage() {
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [error, setError] = useState("");
   const [nextPath, setNextPath] = useState("/dashboard/users");
+  const queryClient = useQueryClient();
+  const authQuery = useQuery({ queryKey: ["auth", "session"], queryFn: fetchAuthMe, retry: false });
+  const loginMutation = useMutation({
+    mutationFn: ({ email, password }: { email: string; password: string }) => login(email, password),
+    onSuccess: () => queryClient.invalidateQueries({ queryKey: ["auth", "session"] }),
+  });
 
   useEffect(() => {
     const requestedPath = new URLSearchParams(window.location.search).get("next");
     if (requestedPath?.startsWith("/") && !requestedPath.startsWith("//")) {
       setNextPath(requestedPath);
     }
-
-    fetchAuthMe()
-      .then((session) => {
-        if (session.authenticated) router.replace(requestedPath || "/dashboard");
-      })
-      .catch(() => undefined);
   }, [router]);
+
+  useEffect(() => {
+    if (!authQuery.data?.authenticated) return;
+    const requestedPath = new URLSearchParams(window.location.search).get("next");
+    router.replace(requestedPath || "/dashboard");
+  }, [authQuery.data?.authenticated, router]);
 
   const handleSubmit = async (event: FormEvent<HTMLFormElement>) => {
     event.preventDefault();
@@ -34,7 +41,7 @@ export default function LoginPage() {
     setIsSubmitting(true);
 
     try {
-      await login(email.trim(), password);
+      await loginMutation.mutateAsync({ email: email.trim(), password });
       router.replace(nextPath);
       router.refresh();
     } catch (err) {

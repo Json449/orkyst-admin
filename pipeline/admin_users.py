@@ -41,6 +41,13 @@ def _status(user: dict[str, Any]) -> str:
     return "active"
 
 
+def _admin_account_status_code() -> str:
+    code = os.getenv("ADMIN_ACCOUNT_STATUS_CODE", "246810").strip()
+    if not re.fullmatch(r"\d{6}", code):
+        raise RuntimeError("ADMIN_ACCOUNT_STATUS_CODE must be a 6-digit code")
+    return code
+
+
 def _activity(user: dict[str, Any]) -> dict[str, int]:
     explicit = user.get("activityCounts")
     if isinstance(explicit, dict):
@@ -423,7 +430,7 @@ def get_admin_user(user_id: str, source: dict[str, Any] | None = None) -> dict[s
     return result
 
 
-def set_admin_user_account_status(user_id: str, *, active: bool) -> dict[str, Any] | None:
+def set_admin_user_account_status(user_id: str, *, active: bool, code: str) -> dict[str, Any] | None:
     """Activate or deactivate a real Orkyst user account from the protected admin app."""
     uri = _orkyst_mongo_uri()
     if not uri:
@@ -437,6 +444,8 @@ def set_admin_user_account_status(user_id: str, *, active: bool) -> dict[str, An
     user = collection.find_one({"_id": target_user_id}, {"email": 1})
     if not user or _is_excluded_admin_email(user.get("email")):
         return None
+    if str(code or "").strip() != _admin_account_status_code():
+        raise PermissionError("Invalid account status security code")
 
     account_status = "active" if active else "deactivated"
     collection.update_one(

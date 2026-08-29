@@ -1,13 +1,13 @@
 "use client";
 
 import { useEffect, useMemo, useState } from "react";
+import { useQuery } from "@tanstack/react-query";
 import Link from "next/link";
 import { ChevronLeft, ChevronRight, Download, Plus, Search } from "lucide-react";
 import { OrganizationsTable } from "@/components/dashboard/organizations-table";
 import { DASH } from "@/components/dashboard/theme";
 import {
   fetchAdminOrganizations,
-  type AdminOrganizationsData,
 } from "@/lib/api";
 
 const TABS = [
@@ -19,15 +19,11 @@ const TABS = [
 ] as const;
 
 export default function OrganizationsPage() {
-  const [data, setData] = useState<AdminOrganizationsData | null>(null);
   const [status, setStatus] = useState<(typeof TABS)[number]["value"]>("all");
   const [query, setQuery] = useState("");
   const [debouncedQuery, setDebouncedQuery] = useState("");
   const [plan, setPlan] = useState("all");
   const [page, setPage] = useState(1);
-  const [loading, setLoading] = useState(true);
-  const [error, setError] = useState("");
-  const [reloadKey, setReloadKey] = useState(0);
 
   useEffect(() => {
     const timer = window.setTimeout(() => setDebouncedQuery(query.trim()), 300);
@@ -36,18 +32,14 @@ export default function OrganizationsPage() {
 
   useEffect(() => setPage(1), [debouncedQuery, status, plan]);
 
-  useEffect(() => {
-    let active = true;
-    setLoading(true);
-    setError("");
-    fetchAdminOrganizations({ query: debouncedQuery, status, plan, page, pageSize: 10 })
-      .then((result) => active && setData(result))
-      .catch((reason: unknown) => {
-        if (active) setError(reason instanceof Error ? reason.message : "Unable to load organizations");
-      })
-      .finally(() => active && setLoading(false));
-    return () => { active = false; };
-  }, [debouncedQuery, status, plan, page, reloadKey]);
+  const organizationsQuery = useQuery({
+    queryKey: ["admin", "organizations", { query: debouncedQuery, status, plan, page }],
+    queryFn: () => fetchAdminOrganizations({ query: debouncedQuery, status, plan, page, pageSize: 10 }),
+    placeholderData: (previousData) => previousData,
+  });
+  const data = organizationsQuery.data;
+  const loading = organizationsQuery.isFetching;
+  const error = organizationsQuery.error instanceof Error ? organizationsQuery.error.message : "Unable to load organizations";
 
   const showing = useMemo(() => {
     if (!data?.pagination.total) return "0";
@@ -106,11 +98,11 @@ export default function OrganizationsPage() {
 
       <p className="mt-6 text-sm" style={{ color: DASH.muted }}>Showing <span className="font-bold" style={{ color: DASH.heading }}>{showing}</span> of {data?.pagination.total ?? 0} organizations</p>
       <div className="mt-4">
-        {error ? (
+        {organizationsQuery.isError ? (
           <div className="rounded-2xl border bg-white px-6 py-14 text-center" style={{ borderColor: DASH.border }}>
             <p className="font-semibold" style={{ color: DASH.heading }}>Organizations could not be loaded</p>
             <p className="mt-1 text-sm" style={{ color: DASH.muted }}>{error}</p>
-            <button onClick={() => setReloadKey((value) => value + 1)} className="mt-5 rounded-xl px-4 py-2 text-sm font-semibold text-white" style={{ backgroundColor: DASH.plum }}>Try again</button>
+            <button onClick={() => organizationsQuery.refetch()} className="mt-5 rounded-xl px-4 py-2 text-sm font-semibold text-white" style={{ backgroundColor: DASH.plum }}>Try again</button>
           </div>
         ) : loading && !data ? (
           <div className="rounded-2xl border bg-white p-5" style={{ borderColor: DASH.border }}>{[0, 1, 2, 3].map((row) => <div key={row} className="mb-3 h-16 animate-pulse rounded-xl bg-[#F3F1F5] last:mb-0" />)}</div>

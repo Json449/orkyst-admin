@@ -1,7 +1,7 @@
 import type { Organization } from "@/components/dashboard/organizations-data";
 import type { OrgDetail } from "@/components/dashboard/org-detail/detail-data";
 
-const API_BASE = process.env.NEXT_PUBLIC_API_BASE_URL ?? "http://127.0.0.1:8003";
+const API_BASE = process.env.NEXT_PUBLIC_API_BASE_URL ?? "/graph-api";
 
 async function getJson<T>(path: string): Promise<T> {
   const response = await fetch(`${API_BASE}${path}`, {
@@ -162,6 +162,50 @@ export type AdminUserAnalyticsData = {
     platforms: string[];
     campaigns: Array<{ id: string; name: string }>;
   };
+};
+
+export type AdminUserActivityDetail = {
+  id: string;
+  sourceType: string;
+  activityType: string;
+  label: string;
+  title: string;
+  description?: string | null;
+  createdAt?: string | null;
+  updatedAt?: string | null;
+  user: {
+    id: string;
+    email: string;
+    fullname: string;
+  };
+  activity?: Record<string, unknown> | null;
+  event?: {
+    id: string;
+    title?: string | null;
+    description?: string | null;
+    type?: string | null;
+    postingStatus?: string | null;
+    isApproved?: boolean | null;
+    scheduledAt?: string | null;
+    postedAt?: string | null;
+    postingError?: string | null;
+    postLink?: string | null;
+    artwork?: string | null;
+    reelUrl?: string | null;
+    date?: string | null;
+    startTime?: string | null;
+    endTime?: string | null;
+    createdAt?: string | null;
+    updatedAt?: string | null;
+  } | null;
+  calendar?: {
+    id: string;
+    theme?: string | null;
+    status?: string | null;
+    createdAt?: string | null;
+  } | null;
+  version?: Record<string, unknown> | null;
+  campaign?: Record<string, unknown> | null;
 };
 
 async function postJson<T>(path: string, body?: unknown): Promise<T> {
@@ -396,10 +440,10 @@ export function fetchAdminUser(userId: string) {
   return getJson<AdminUserDetail>(`/api/admin/users/${encodeURIComponent(userId)}`);
 }
 
-export function setAdminUserAccountStatus(userId: string, active: boolean) {
+export function setAdminUserAccountStatus(userId: string, active: boolean, code: string) {
   return postJson<AdminUser>(
     `/api/admin/users/${encodeURIComponent(userId)}/account-status`,
-    { active },
+    { active, code },
   );
 }
 
@@ -427,6 +471,12 @@ export function fetchAdminUserAnalytics(userId: string, filters: {
   params.set("activity_page", String(filters.activityPage || 1));
   params.set("activity_page_size", String(filters.activityPageSize || 20));
   return getJson<AdminUserAnalyticsData>(`/api/admin/users/${encodeURIComponent(userId)}/analytics?${params.toString()}`);
+}
+
+export function fetchAdminUserActivityDetail(userId: string, activityId: string) {
+  return getJson<AdminUserActivityDetail>(
+    `/api/admin/users/${encodeURIComponent(userId)}/activity/${encodeURIComponent(activityId)}`,
+  );
 }
 
 export function fetchAdminOrganizations(filters: {

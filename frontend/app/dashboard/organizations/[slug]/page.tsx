@@ -1,9 +1,10 @@
 "use client";
 
-import { use, useEffect, useState } from "react";
+import { use } from "react";
+import { useQuery } from "@tanstack/react-query";
 import Link from "next/link";
 import { ChevronRight } from "lucide-react";
-import { fetchAdminOrganization, type AdminOrganizationDetailData } from "@/lib/api";
+import { fetchAdminOrganization } from "@/lib/api";
 import { OrgHeader } from "@/components/dashboard/org-detail/org-header";
 import { OrganizationInformation } from "@/components/dashboard/org-detail/organization-information";
 import { OnboardingProgress } from "@/components/dashboard/org-detail/onboarding-progress";
@@ -14,16 +15,14 @@ import { DASH } from "@/components/dashboard/theme";
 
 export default function OrganizationDetailPage({ params }: { params: Promise<{ slug: string }> }) {
   const { slug } = use(params);
-  const [data, setData] = useState<AdminOrganizationDetailData | null>(null);
-  const [error, setError] = useState("");
+  const organizationQuery = useQuery({
+    queryKey: ["admin", "organization", slug],
+    queryFn: () => fetchAdminOrganization(slug),
+  });
+  const data = organizationQuery.data;
+  const error = organizationQuery.error instanceof Error ? organizationQuery.error.message : "Unable to load organization";
 
-  useEffect(() => {
-    fetchAdminOrganization(slug)
-      .then(setData)
-      .catch((reason: unknown) => setError(reason instanceof Error ? reason.message : "Unable to load organization"));
-  }, [slug]);
-
-  if (error) return <div className="rounded-2xl border bg-white px-6 py-14 text-center" style={{ borderColor: DASH.border, color: DASH.heading }}>{error}</div>;
+  if (organizationQuery.isError) return <div className="rounded-2xl border bg-white px-6 py-14 text-center" style={{ borderColor: DASH.border, color: DASH.heading }}>{error}</div>;
   if (!data) return <div className="h-72 animate-pulse rounded-2xl bg-[#F3F1F5]" />;
 
   const { organization: org, detail } = data;

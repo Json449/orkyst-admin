@@ -1,11 +1,11 @@
 "use client";
 
 import { useEffect, useMemo, useState } from "react";
+import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { ChevronLeft, ChevronRight, Download, Search, Users } from "lucide-react";
 import { UsersTable } from "@/components/dashboard/users/users-table";
 import { DASH } from "@/components/dashboard/theme";
 import {
-  type AdminUsersData,
   type AdminUserStatus,
   fetchAdminUsers,
   setAdminUserAccountStatus,
@@ -20,7 +20,6 @@ const TABS: Array<{ value: "all" | AdminUserStatus; label: string }> = [
 ];
 
 export default function UsersPage() {
-  const [data, setData] = useState<AdminUsersData | null>(null);
   const [status, setStatus] = useState<"all" | AdminUserStatus>("all");
   const [query, setQuery] = useState("");
   const [debouncedQuery, setDebouncedQuery] = useState("");
@@ -28,9 +27,7 @@ export default function UsersPage() {
   const [provider, setProvider] = useState("all");
   const [page, setPage] = useState(1);
   const [pageSize, setPageSize] = useState(10);
-  const [loading, setLoading] = useState(true);
-  const [error, setError] = useState("");
-  const [reloadKey, setReloadKey] = useState(0);
+  const queryClient = useQueryClient();
 
   useEffect(() => {
     const timer = window.setTimeout(() => setDebouncedQuery(query.trim()), 300);
@@ -39,18 +36,19 @@ export default function UsersPage() {
 
   useEffect(() => setPage(1), [debouncedQuery, status, plan, provider, pageSize]);
 
-  useEffect(() => {
-    let active = true;
-    setLoading(true);
-    setError("");
-    fetchAdminUsers({ query: debouncedQuery, status, plan, provider, page, pageSize })
-      .then((result) => active && setData(result))
-      .catch((reason: unknown) => {
-        if (active) setError(reason instanceof Error ? reason.message : "Unable to load users");
-      })
-      .finally(() => active && setLoading(false));
-    return () => { active = false; };
-  }, [debouncedQuery, status, plan, provider, page, pageSize, reloadKey]);
+  const usersQuery = useQuery({
+    queryKey: ["admin", "users", { query: debouncedQuery, status, plan, provider, page, pageSize }],
+    queryFn: () => fetchAdminUsers({ query: debouncedQuery, status, plan, provider, page, pageSize }),
+    placeholderData: (previousData) => previousData,
+  });
+  const accountStatusMutation = useMutation({
+    mutationFn: ({ userId, active, code }: { userId: string; active: boolean; code: string }) =>
+      setAdminUserAccountStatus(userId, active, code),
+    onSuccess: () => queryClient.invalidateQueries({ queryKey: ["admin", "users"] }),
+  });
+  const data = usersQuery.data;
+  const loading = usersQuery.isFetching;
+  const error = usersQuery.error instanceof Error ? usersQuery.error.message : "Unable to load users";
 
   const pageNumbers = useMemo(() => {
     if (!data) return [];
@@ -144,11 +142,11 @@ export default function UsersPage() {
       </div>
 
       <div className="mt-4">
-        {error ? (
+        {usersQuery.isError ? (
           <div className="rounded-2xl border bg-white px-6 py-14 text-center" style={{ borderColor: DASH.border }}>
             <p className="font-semibold" style={{ color: DASH.heading }}>Users could not be loaded</p>
             <p className="mt-1 text-sm" style={{ color: DASH.muted }}>{error}</p>
-            <button onClick={() => setReloadKey((value) => value + 1)} className="mt-5 rounded-xl px-4 py-2 text-sm font-semibold text-white" style={{ backgroundColor: DASH.plum }}>Try again</button>
+            <button onClick={() => usersQuery.refetch()} className="mt-5 rounded-xl px-4 py-2 text-sm font-semibold text-white" style={{ backgroundColor: DASH.plum }}>Try again</button>
           </div>
         ) : loading && !data ? (
           <div className="overflow-hidden rounded-2xl border bg-white p-5" style={{ borderColor: DASH.border }}>
@@ -158,9 +156,8 @@ export default function UsersPage() {
           <div className={loading ? "opacity-60" : ""}>
             <UsersTable
               users={data.items}
-              onAccountStatusChange={async (user, active) => {
-                await setAdminUserAccountStatus(user.id, active);
-                setReloadKey((value) => value + 1);
+              onAccountStatusChange={async (user, active, code) => {
+                await accountStatusMutation.mutateAsync({ userId: user.id, active, code });
               }}
             />
           </div>

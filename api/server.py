@@ -8,6 +8,7 @@ Start with:
 """
 
 import json
+import logging
 import os
 import sys
 from collections import defaultdict
@@ -31,7 +32,9 @@ from pipeline.admin_users import (
     list_admin_users,
     set_admin_user_account_status,
 )
+from pipeline.admin_notifications import send_account_status_email
 from pipeline.admin_user_analytics import get_admin_user_analytics
+from pipeline.admin_user_activity_detail import get_admin_user_activity_detail
 from pipeline.admin_organizations import get_admin_organization, list_admin_organizations
 from pipeline.admin_recent_activity import list_admin_recent_activity
 from api.admin_auth import (
@@ -63,6 +66,7 @@ PLATFORM_COLORS = {
 
 app = FastAPI(title="Orkyst Analytics API")
 ensure_admin_db()
+logger = logging.getLogger(__name__)
 
 cors_origins = [
     origin.strip()
@@ -86,6 +90,7 @@ class LoginPayload(BaseModel):
 
 class AccountStatusPayload(BaseModel):
     active: bool
+    code: str
 
 
 def _fmt_number(n: int | float) -> str:
@@ -369,13 +374,23 @@ def admin_user_account_status(
     user_id: str,
     payload: AccountStatusPayload,
 ):
-    _require_admin_session(request)
+    session = _require_admin_session(request)
     try:
-        user = set_admin_user_account_status(user_id, active=payload.active)
+        user = set_admin_user_account_status(user_id, active=payload.active, code=payload.code)
+    except PermissionError as exc:
+        raise HTTPException(status_code=403, detail=str(exc)) from exc
     except RuntimeError as exc:
         raise HTTPException(status_code=503, detail=str(exc)) from exc
     if not user:
         raise HTTPException(status_code=404, detail="User not found")
+    try:
+        send_account_status_email(
+            user,
+            active=payload.active,
+            sender_email=session.get("email"),
+        )
+    except Exception:
+        logger.exception("Unable to send account status email for user %s", user_id)
     return user
 
 
@@ -411,6 +426,18 @@ def admin_user_analytics(
     if not analytics:
         raise HTTPException(status_code=404, detail="User not found")
     return analytics
+
+
+@app.get("/api/admin/users/{user_id}/activity/{activity_id}")
+def admin_user_activity_detail(request: Request, user_id: str, activity_id: str):
+    _require_admin_session(request)
+    try:
+        detail = get_admin_user_activity_detail(user_id, activity_id)
+    except RuntimeError as exc:
+        raise HTTPException(status_code=503, detail=str(exc)) from exc
+    if not detail:
+        raise HTTPException(status_code=404, detail="Activity not found")
+    return detail
 
 
 @app.get("/api/admin/organizations")

@@ -197,6 +197,18 @@ NEO4J_DATABASE=neo4j
 GEMINI_API_KEY=<key>
 ```
 
+Optional SMTP settings for account activation/deactivation notices:
+
+```env
+SMTP_HOST=smtp.example.com
+SMTP_PORT=587
+SMTP_USERNAME=<smtp-user>
+SMTP_PASSWORD=<smtp-password>
+SMTP_FROM_EMAIL=no-reply@orkyst.com
+SMTP_FROM_NAME=Orkyst
+SMTP_USE_TLS=true
+```
+
 ---
 
 ## Running the System
