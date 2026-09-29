@@ -221,3 +221,84 @@ def send_account_status_email(
         smtp.send_message(message, to_addrs=recipients)
 
     return True
+
+def send_onboarding_email(*, recipient: str, temporary_password: str, login_url: str, team_name: str = "Sukli") -> bool:
+    recipient = recipient.strip()
+    team_name = team_name.strip() or "Sukli"
+    login_url = login_url.strip() or "https://app.orkyst.com/"
+    gmail_user = os.getenv("GMAIL_USER", "").strip()
+    smtp_host = os.getenv("SMTP_HOST", "").strip() or ("smtp.gmail.com" if gmail_user else "")
+    smtp_from_email = os.getenv("SMTP_FROM_EMAIL", "").strip() or gmail_user
+    if not recipient or not smtp_host or not smtp_from_email:
+        return False
+    plain_text = f"""Hi {team_name} Team,
+
+Welcome to Orkyst!
+
+Your Orkyst account has been created and is ready for onboarding. Use the secure temporary credentials below to sign in.
+
+Email: {recipient}
+Temporary Password: {temporary_password}
+Login: {login_url}
+
+Please sign in and explore the platform to familiarize yourself with the workspace. After signing in, update your temporary password from Profile Settings → Change Password.
+
+Looking forward to working with the {team_name} team!
+
+Best regards,
+The Orkyst Team
+
+Orkyst™ — Transform Marketing Chaos into Results"""
+
+    logo_asset = _load_logo_asset()
+    logo_content_id = make_msgid()[1:-1] if logo_asset else None
+    logo_html = (
+        f'<img src="cid:{logo_content_id}" alt="Orkyst" width="144" style="display:block;width:144px;max-width:144px;height:auto;border:0;" />'
+        if logo_content_id
+        else '<span style="font-size:32px;font-weight:800;color:#7A0860;">Orkyst</span>'
+    )
+    safe_team = escape(team_name)
+    safe_email = escape(recipient)
+    safe_password = escape(temporary_password)
+    safe_login_url = escape(login_url, quote=True)
+    html_body = f"""<!doctype html>
+<html lang="en"><body style="margin:0;padding:0;background:#FFFFFF;font-family:Segoe UI,Arial,Helvetica,sans-serif;color:#292A52;">
+<table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="background:#FFFFFF;padding:42px 18px;"><tr><td align="center">
+  <table role="presentation" width="650" cellpadding="0" cellspacing="0" style="width:650px;max-width:100%;">
+    <tr><td align="center" style="padding-bottom:32px;">{logo_html}</td></tr>
+    <tr><td align="center"><span style="display:inline-block;border-radius:999px;background:#F5E4F0;padding:9px 28px;color:#8A1253;font-size:12px;font-weight:800;letter-spacing:2px;text-transform:uppercase;">Welcome aboard</span><h1 style="margin:22px 0 36px;font-size:36px;line-height:1.2;color:#171832;">Your Orkyst account is ready</h1></td></tr>
+    <tr><td style="font-size:16px;line-height:1.7;"><p style="margin:0;">Hi <strong style="color:#8A1253;">{safe_team} Team,</strong></p><p style="margin:14px 0 28px;">Welcome to Orkyst! Your workspace has been prepared<br>and is ready for onboarding.</p></td></tr>
+    <tr><td>
+          <table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="border:1px solid #EEDDE8;border-radius:14px;background:#FCF8FB;">
+            <tr><td style="padding:26px 30px;">
+              <p style="margin:0 0 22px;color:#8A1253;font-size:12px;font-weight:800;letter-spacing:1.4px;text-transform:uppercase;">◯ &nbsp; Your login details</p>
+              <p style="margin:0;color:#595B83;font-size:13px;">✉ &nbsp; Email<br><strong style="display:inline-block;margin:4px 0 18px 27px;color:#24254B;font-size:15px;">{safe_email}</strong></p><div style="height:1px;background:#E9DFE8;margin-bottom:18px;"></div>
+              <p style="margin:0;color:#595B83;font-size:13px;">▣ &nbsp; Temporary Password<br><strong style="display:inline-block;margin:4px 0 0 27px;color:#24254B;font-size:15px;letter-spacing:.5px;">{safe_password}</strong></p>
+            </td></tr>
+          </table>
+    </td></tr>
+    <tr><td align="center" style="padding:28px 0;"><a href="{safe_login_url}" style="display:inline-block;min-width:260px;border-radius:12px;background:#93006F;padding:15px 30px;color:#FFFFFF;text-decoration:none;font-size:15px;font-weight:800;">Log in to Orkyst &nbsp; →</a><p style="margin:13px 0 0;"><a href="{safe_login_url}" style="color:#8A1253;font-size:13px;">{safe_login_url}</a></p></td></tr>
+    <tr><td style="border-radius:14px;background:#FDF3F9;padding:20px 28px;color:#55577E;font-size:13px;line-height:1.65;"><strong style="display:block;color:#8A1253;font-size:14px;">Important security step</strong>After signing in, please update your temporary password from <strong>Profile Settings → Change Password.</strong></td></tr>
+    <tr><td style="padding:32px 0 28px;color:#55577E;font-size:14px;line-height:1.8;">Explore the platform and familiarize yourself with your workspace.<br>We’re looking forward to working with the {safe_team} team.<p style="margin:28px 0 0;">Best regards,<br><strong style="color:#292A52;">The Orkyst Team</strong></p></td></tr>
+    <tr><td align="center" style="border-top:1px solid #E7E0E7;padding-top:22px;color:#8586A0;font-size:11px;">© 2026 Orkyst. All rights reserved.</td></tr>
+  </table>
+</td></tr></table></body></html>"""
+
+    message = EmailMessage()
+    message["Subject"] = "Welcome to Orkyst — your account is ready"
+    message["From"] = formataddr((os.getenv("SMTP_FROM_NAME", "Orkyst"), smtp_from_email))
+    message["To"] = recipient
+    message.set_content(plain_text)
+    message.add_alternative(html_body, subtype="html")
+    if logo_asset and logo_content_id:
+        logo_bytes, logo_subtype, logo_filename = logo_asset
+        message.get_payload()[-1].add_related(logo_bytes, maintype="image", subtype=logo_subtype, cid=f"<{logo_content_id}>", filename=logo_filename, disposition="inline")
+    smtp_port = int(os.getenv("SMTP_PORT", "587"))
+    smtp_username = os.getenv("SMTP_USERNAME", "").strip() or gmail_user
+    smtp_password = os.getenv("SMTP_PASSWORD", "") or os.getenv("GMAIL_PASSWORD", "")
+    with smtplib.SMTP(smtp_host, smtp_port, timeout=15) as smtp:
+        if os.getenv("SMTP_USE_TLS", "true").lower() not in {"0", "false", "no", "off"}:
+            smtp.starttls()
+        if smtp_username: smtp.login(smtp_username, smtp_password)
+        smtp.send_message(message)
+    return True

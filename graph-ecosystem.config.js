@@ -11,6 +11,7 @@
 //   pm2 start ecosystem.config.js --update-env
 
 const path = require("path");
+const fs = require("fs");
 
 const ROOT = __dirname;
 const FRONTEND = path.join(ROOT, "frontend");
@@ -18,10 +19,21 @@ const PYTHON = path.join(ROOT, ".venv312", "bin", "python");
 const STREAMLIT = path.join(ROOT, ".venv312", "bin", "streamlit");
 const LOGS = path.join(ROOT, "logs");
 
-const FRONTEND_URL = process.env.ADMIN_APP_FRONTEND_URL || "http://localhost:3002";
-const GRAPH_API_PORT = Number(process.env.GRAPH_API_PORT || 8010);
+const ENVIRONMENT = (process.env.GRAPH_API_ENVIRONMENT || "staging").toLowerCase();
+const ENV_FILE = path.join(ROOT, `.env.${ENVIRONMENT}`);
+const fileEnv = {};
+if (fs.existsSync(ENV_FILE)) {
+  for (const line of fs.readFileSync(ENV_FILE, "utf8").split(/\r?\n/)) {
+    const match = line.match(/^\s*([A-Za-z_][A-Za-z0-9_]*)\s*=\s*(.*)\s*$/);
+    if (match && !match[1].startsWith("#")) fileEnv[match[1]] = match[2].replace(/^['"]|['"]$/g, "");
+  }
+}
+const env = { ...fileEnv, ...process.env };
+
+const FRONTEND_URL = env.ADMIN_APP_FRONTEND_URL || "http://localhost:3002";
+const GRAPH_API_PORT = Number(env.GRAPH_API_PORT || 8010);
 const GRAPH_API_INTERNAL_URL =
-  process.env.GRAPH_API_INTERNAL_URL || `http://127.0.0.1:${GRAPH_API_PORT}`;
+  env.GRAPH_API_INTERNAL_URL || `http://127.0.0.1:${GRAPH_API_PORT}`;
 
 module.exports = {
   apps: [
@@ -37,7 +49,7 @@ module.exports = {
         PORT: 3002,
         NEXT_PUBLIC_FRONTEND_URL: FRONTEND_URL,
         NEXT_PUBLIC_BASE_URL: FRONTEND_URL,
-        NEXT_PUBLIC_API_BASE_URL: process.env.ADMIN_APP_API_BASE_URL || "/graph-api",
+        NEXT_PUBLIC_API_BASE_URL: env.ADMIN_APP_API_BASE_URL || "/graph-api",
         GRAPH_API_INTERNAL_URL,
       },
       error_file: path.join(LOGS, "admin-app-err.log"),
@@ -52,7 +64,8 @@ module.exports = {
       args: `-m uvicorn api.server:app --host 127.0.0.1 --port ${GRAPH_API_PORT}`,
       interpreter: "none",
       env: {
-        ENVIRONMENT: process.env.GRAPH_API_ENVIRONMENT || "development",
+        GRAPH_API_ENVIRONMENT: ENVIRONMENT,
+        ENVIRONMENT,
         GRAPH_API_CORS_ORIGINS: [
           "https://admin-app.orkyst.com",
           "http://localhost:3002",
@@ -72,7 +85,8 @@ module.exports = {
         "run dashboard/app.py --server.address 127.0.0.1 --server.port 8501 --server.headless true",
       interpreter: "none",
       env: {
-        ENVIRONMENT: process.env.GRAPH_API_ENVIRONMENT || "development",
+        GRAPH_API_ENVIRONMENT: ENVIRONMENT,
+        ENVIRONMENT,
       },
       error_file: path.join(LOGS, "graph-dashboard-err.log"),
       out_file: path.join(LOGS, "graph-dashboard-out.log"),

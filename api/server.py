@@ -21,18 +21,24 @@ from pydantic import BaseModel
 
 ROOT = Path(__file__).parent.parent
 sys.path.insert(0, str(ROOT))
-load_dotenv(ROOT / ".env")
+environment = os.getenv("GRAPH_API_ENVIRONMENT", "development").strip().lower()
+environment_file = ROOT / f".env.{environment}"
+if environment in {"staging", "production"} and environment_file.exists():
+    load_dotenv(environment_file, override=False)
+load_dotenv(ROOT / ".env", override=False)
 
 from pipeline.processor import process, CONTENT_TYPE_LABELS, PLATFORM_LABELS
 from pipeline.retriever import fetch_graph_context
 from pipeline.llm_analyst import generate_recommendations
 from pipeline.admin_stats import build_admin_stats
 from pipeline.admin_users import (
+    _admin_account_status_code,
     get_admin_user,
     list_admin_users,
+    reset_admin_user_package_usage,
     set_admin_user_account_status,
 )
-from pipeline.admin_notifications import send_account_status_email
+from pipeline.admin_notifications import send_account_status_email, send_onboarding_email
 from pipeline.admin_user_analytics import get_admin_user_analytics
 from pipeline.admin_user_activity_detail import get_admin_user_activity_detail
 from pipeline.admin_organizations import get_admin_organization, list_admin_organizations
@@ -90,6 +96,17 @@ class LoginPayload(BaseModel):
 
 class AccountStatusPayload(BaseModel):
     active: bool
+    code: str
+
+
+class PackageUsageResetPayload(BaseModel):
+    code: str
+
+class OnboardingEmailPayload(BaseModel):
+    email: str
+    temporary_password: str
+    login_url: str
+    team_name: str = "Sukli"
     code: str
 
 
@@ -367,6 +384,22 @@ def admin_user_detail(request: Request, user_id: str):
         raise HTTPException(status_code=404, detail="User not found")
     return user
 
+@app.post("/api/admin/onboarding/send-email")
+def admin_send_onboarding_email(request: Request, payload: OnboardingEmailPayload):
+    _require_admin_session(request)
+    if payload.code.strip() != _admin_account_status_code():
+        raise HTTPException(status_code=403, detail="Invalid admin security code")
+    if not payload.temporary_password.strip():
+        raise HTTPException(status_code=400, detail="Temporary password is required")
+    try:
+        sent = send_onboarding_email(recipient=str(payload.email), temporary_password=payload.temporary_password, login_url=payload.login_url, team_name=payload.team_name.strip() or "Sukli")
+    except Exception as exc:
+        logger.exception("Unable to send onboarding email")
+        raise HTTPException(status_code=502, detail="Unable to send onboarding email") from exc
+    if not sent:
+        raise HTTPException(status_code=503, detail="SMTP is not configured")
+    return {"status": 200, "message": "Onboarding email sent"}
+
 
 @app.post("/api/admin/users/{user_id}/account-status")
 def admin_user_account_status(
@@ -391,6 +424,24 @@ def admin_user_account_status(
         )
     except Exception:
         logger.exception("Unable to send account status email for user %s", user_id)
+    return user
+
+
+@app.post("/api/admin/users/{user_id}/reset-package-usage")
+def admin_user_package_usage_reset(
+    request: Request,
+    user_id: str,
+    payload: PackageUsageResetPayload,
+):
+    _require_admin_session(request)
+    try:
+        user = reset_admin_user_package_usage(user_id, code=payload.code)
+    except PermissionError as exc:
+        raise HTTPException(status_code=403, detail=str(exc)) from exc
+    except RuntimeError as exc:
+        raise HTTPException(status_code=503, detail=str(exc)) from exc
+    if not user:
+        raise HTTPException(status_code=404, detail="User not found")
     return user
 
 

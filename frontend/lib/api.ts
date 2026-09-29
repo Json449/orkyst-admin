@@ -447,6 +447,13 @@ export function setAdminUserAccountStatus(userId: string, active: boolean, code:
   );
 }
 
+export function resetAdminUserPackageUsage(userId: string, code: string) {
+  return postJson<AdminUser>(
+    `/api/admin/users/${encodeURIComponent(userId)}/reset-package-usage`,
+    { code },
+  );
+}
+
 export function fetchAdminUserAnalytics(userId: string, filters: {
   dateFrom?: string;
   dateTo?: string;
@@ -505,6 +512,10 @@ export function login(email: string, password: string) {
 
 export function logout() {
   return postJson<{ status: number }>("/api/auth/logout");
+}
+
+export function sendOnboardingEmail(payload: { email: string; temporary_password: string; login_url: string; team_name: string; code: string }) {
+  return postJson<{ status: number; message: string }>("/api/admin/onboarding/send-email", payload);
 }
 
 export function fetchAuthMe() {

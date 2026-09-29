@@ -63,18 +63,30 @@ function UserAvatar({ user }: { user: AdminUser }) {
 export function UsersTable({
   users,
   onAccountStatusChange,
+  onPackageUsageReset,
 }: {
   users: AdminUser[];
   onAccountStatusChange: (user: AdminUser, active: boolean, code: string) => Promise<void>;
+  onPackageUsageReset: (user: AdminUser, code: string) => Promise<void>;
 }) {
   const router = useRouter();
   const [changingUserId, setChangingUserId] = useState<string>();
-  const [pendingAction, setPendingAction] = useState<{ user: AdminUser; active: boolean } | null>(null);
+  const [pendingAction, setPendingAction] = useState<{
+    user: AdminUser;
+    type: "account" | "package";
+    active?: boolean;
+  } | null>(null);
   const [securityCode, setSecurityCode] = useState("");
   const [securityError, setSecurityError] = useState("");
 
   async function changeAccountStatus(user: AdminUser, active: boolean) {
-    setPendingAction({ user, active });
+    setPendingAction({ user, type: "account", active });
+    setSecurityCode("");
+    setSecurityError("");
+  }
+
+  function resetPackageUsage(user: AdminUser) {
+    setPendingAction({ user, type: "package" });
     setSecurityCode("");
     setSecurityError("");
   }
@@ -87,10 +99,16 @@ export function UsersTable({
       return;
     }
 
-    const action = pendingAction.active ? "activate" : "deactivate";
+    const action = pendingAction.type === "package"
+      ? "reset this user's package usage"
+      : pendingAction.active ? "activate" : "deactivate";
     try {
       setChangingUserId(pendingAction.user.id);
-      await onAccountStatusChange(pendingAction.user, pendingAction.active, code);
+      if (pendingAction.type === "package") {
+        await onPackageUsageReset(pendingAction.user, code);
+      } else {
+        await onAccountStatusChange(pendingAction.user, Boolean(pendingAction.active), code);
+      }
       setPendingAction(null);
       setSecurityCode("");
       setSecurityError("");
@@ -154,21 +172,34 @@ export function UsersTable({
                   </td>
                   <td className="whitespace-nowrap px-5 py-4 text-sm" style={{ color: DASH.heading }}>{shortDate(user.createdAt)}</td>
                   <td className="px-5 py-4">
-                    <button
-                      type="button"
-                      disabled={Boolean(changingUserId)}
-                      onClick={(event) => {
-                        event.stopPropagation();
-                        void changeAccountStatus(user, deactivated);
-                      }}
-                      className={`rounded-lg border px-3 py-1.5 text-xs font-bold transition-colors disabled:cursor-not-allowed disabled:opacity-50 ${
-                        deactivated
-                          ? "border-emerald-200 bg-emerald-50 text-emerald-700 hover:bg-emerald-100"
-                          : "border-rose-200 bg-rose-50 text-rose-700 hover:bg-rose-100"
-                      }`}
-                    >
-                      {changing ? "Updating…" : deactivated ? "Activate" : "Deactivate"}
-                    </button>
+                    <div className="flex flex-wrap gap-2">
+                      <button
+                        type="button"
+                        disabled={Boolean(changingUserId)}
+                        onClick={(event) => {
+                          event.stopPropagation();
+                          void changeAccountStatus(user, deactivated);
+                        }}
+                        className={`rounded-lg border px-3 py-1.5 text-xs font-bold transition-colors disabled:cursor-not-allowed disabled:opacity-50 ${
+                          deactivated
+                            ? "border-emerald-200 bg-emerald-50 text-emerald-700 hover:bg-emerald-100"
+                            : "border-rose-200 bg-rose-50 text-rose-700 hover:bg-rose-100"
+                        }`}
+                      >
+                        {changing ? "Updating…" : deactivated ? "Activate" : "Deactivate"}
+                      </button>
+                      <button
+                        type="button"
+                        disabled={Boolean(changingUserId)}
+                        onClick={(event) => {
+                          event.stopPropagation();
+                          resetPackageUsage(user);
+                        }}
+                        className="rounded-lg border border-violet-200 bg-violet-50 px-3 py-1.5 text-xs font-bold text-violet-700 transition-colors hover:bg-violet-100 disabled:cursor-not-allowed disabled:opacity-50"
+                      >
+                        Reset package
+                      </button>
+                    </div>
                   </td>
                   <td className="px-5 py-4"><ArrowRight className="h-4 w-4" style={{ color: DASH.subtle }} /></td>
                 </tr>
@@ -196,7 +227,7 @@ export function UsersTable({
               <div>
                 <DialogTitle>Confirm account change</DialogTitle>
                 <DialogDescription>
-                  Enter the 6-digit admin code to {pendingAction?.active ? "activate" : "deactivate"} this account.
+                  Enter the 6-digit admin code to {pendingAction?.type === "package" ? "reset package usage for" : pendingAction?.active ? "activate" : "deactivate"} this account.
                 </DialogDescription>
               </div>
             </div>
@@ -222,7 +253,7 @@ export function UsersTable({
               />
             </div>
             <p className="text-xs" style={{ color: DASH.muted }}>
-              This code is required for both activation and deactivation.
+              Resetting usage does not change the user's plan or subscription.
             </p>
             {securityError ? (
               <p role="alert" className="text-sm font-medium text-rose-600">
@@ -251,7 +282,7 @@ export function UsersTable({
               className="rounded-xl px-4 py-2 text-sm font-semibold text-white disabled:cursor-not-allowed disabled:opacity-60"
               style={{ backgroundColor: DASH.plum }}
             >
-              {changingUserId ? "Updating…" : pendingAction?.active ? "Activate account" : "Deactivate account"}
+              {changingUserId ? "Updating…" : pendingAction?.type === "package" ? "Reset package usage" : pendingAction?.active ? "Activate account" : "Deactivate account"}
             </button>
           </DialogFooter>
         </DialogContent>

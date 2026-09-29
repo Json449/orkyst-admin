@@ -454,3 +454,43 @@ def set_admin_user_account_status(user_id: str, *, active: bool, code: str) -> d
     )
     updated = collection.find_one({"_id": target_user_id})
     return _serialize_user(_serialize_mongo_user(updated)) if updated else None
+
+
+def reset_admin_user_package_usage(user_id: str, *, code: str) -> dict[str, Any] | None:
+    """Reset a user's current package-usage allowance without changing their subscription."""
+    uri = _orkyst_mongo_uri()
+    if not uri:
+        raise RuntimeError("Live MongoDB access is required to reset package usage")
+    try:
+        target_user_id = ObjectId(user_id)
+    except (InvalidId, TypeError):
+        return None
+
+    collection = _mongo_client(uri)[os.getenv("ORKYST_MONGO_DB", "test")]["users"]
+    user = collection.find_one({"_id": target_user_id}, {"email": 1})
+    if not user or _is_excluded_admin_email(user.get("email")):
+        return None
+    if str(code or "").strip() != _admin_account_status_code():
+        raise PermissionError("Invalid account status security code")
+
+    reset_at = datetime.now(timezone.utc)
+    usage_period_key = f"{reset_at.year}-{reset_at.month:02d}"
+    collection.update_one(
+        {"_id": target_user_id},
+        {
+            "$set": {
+                "usagePeriodKey": usage_period_key,
+                "packageUsageResetAt": reset_at,
+                "calendarsGeneratedThisMonth": 0,
+                "socialPostsGeneratedThisMonth": 0,
+                "imagesGeneratedThisMonth": 0,
+                "captionsGeneratedThisMonth": 0,
+                "brandProfilesCreatedThisMonth": 0,
+                "reelUsageThisMonth": 0,
+                "reelUsageResetDate": reset_at,
+                "updatedAt": reset_at,
+            }
+        },
+    )
+    updated = collection.find_one({"_id": target_user_id})
+    return _serialize_user(_serialize_mongo_user(updated)) if updated else None

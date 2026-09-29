@@ -9,6 +9,7 @@ import {
   Menu,
   Users,
   X,
+  Mail,
 } from "lucide-react";
 import { OrkystLogo } from "@/components/orkyst-logo";
 import { DASH } from "./theme";
@@ -25,6 +26,7 @@ const PLATFORM_NAV: NavItem[] = [
   { label: "Organizations", icon: Building2, href: "/dashboard/organizations" },
   { label: "Users", icon: Users, href: "/dashboard/users" },
 ];
+const ONBOARDING_NAV: NavItem[] = [{ label: "Email template", icon: Mail, href: "/dashboard/onboarding" }];
 
 function SectionLabel({ children }: { children: string }) {
   return (
@@ -113,6 +115,8 @@ export function DashboardSidebar() {
             <NavLink key={item.label} item={item} active={isActive(item.href)} />
           ))}
         </div>
+        <SectionLabel>Onboarding</SectionLabel>
+        <div className="space-y-0.5">{ONBOARDING_NAV.map((item) => <NavLink key={item.label} item={item} active={isActive(item.href)} />)}</div>
       </nav>
     </aside>
   );
@@ -143,6 +147,8 @@ export function MobileDashboardNav() {
                 const active = isActive(item.href);
                 return <Link key={item.href} href={item.href} onClick={() => setOpen(false)} className="flex items-center gap-3 rounded-xl px-3 py-3 text-sm font-semibold" style={{ backgroundColor: active ? DASH.pink : "transparent", color: active ? DASH.plum : DASH.heading }}><Icon className="h-5 w-5" />{item.label}</Link>;
               })}
+              <div className="px-3 pt-4 text-[10px] font-bold uppercase tracking-wider text-[#9CA3AF]">Onboarding</div>
+              {ONBOARDING_NAV.map((item) => { const Icon = item.icon; const active = isActive(item.href); return <Link key={item.href} href={item.href} onClick={() => setOpen(false)} className="flex items-center gap-3 rounded-xl px-3 py-3 text-sm font-semibold" style={{ backgroundColor: active ? DASH.pink : "transparent", color: active ? DASH.plum : DASH.heading }}><Icon className="h-5 w-5" />{item.label}</Link>; })}
             </nav>
           </aside>
         </div>

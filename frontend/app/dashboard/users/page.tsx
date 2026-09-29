@@ -8,6 +8,7 @@ import { DASH } from "@/components/dashboard/theme";
 import {
   type AdminUserStatus,
   fetchAdminUsers,
+  resetAdminUserPackageUsage,
   setAdminUserAccountStatus,
 } from "@/lib/api";
 
@@ -44,6 +45,11 @@ export default function UsersPage() {
   const accountStatusMutation = useMutation({
     mutationFn: ({ userId, active, code }: { userId: string; active: boolean; code: string }) =>
       setAdminUserAccountStatus(userId, active, code),
+    onSuccess: () => queryClient.invalidateQueries({ queryKey: ["admin", "users"] }),
+  });
+  const packageUsageResetMutation = useMutation({
+    mutationFn: ({ userId, code }: { userId: string; code: string }) =>
+      resetAdminUserPackageUsage(userId, code),
     onSuccess: () => queryClient.invalidateQueries({ queryKey: ["admin", "users"] }),
   });
   const data = usersQuery.data;
@@ -158,6 +164,9 @@ export default function UsersPage() {
               users={data.items}
               onAccountStatusChange={async (user, active, code) => {
                 await accountStatusMutation.mutateAsync({ userId: user.id, active, code });
+              }}
+              onPackageUsageReset={async (user, code) => {
+                await packageUsageResetMutation.mutateAsync({ userId: user.id, code });
               }}
             />
           </div>
