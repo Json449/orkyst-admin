@@ -271,6 +271,7 @@ def _serialize_category(document: dict) -> dict:
         "templateCount": _template_collection().count_documents(template_filter),
         "subcategories": subcategories,
         "sortOrder": int(document.get("sortOrder", 0)),
+        "priority": int(document.get("priority", document.get("sortOrder", 0))),
         "createdAt": created_at or "",
     }
 
@@ -278,7 +279,12 @@ def _serialize_category(document: dict) -> dict:
 def list_template_categories() -> dict:
     _sync_legacy_templates()
     _ensure_template_categories()
-    documents = _category_collection().find({}).sort([("sortOrder", 1), ("name", 1)])
+    documents = list(_category_collection().find({}))
+    documents.sort(key=lambda document: (
+        int(document.get("priority", document.get("sortOrder", 0))),
+        int(document.get("sortOrder", 0)),
+        str(document.get("name", "")),
+    ))
     return {"items": [_serialize_category(document) for document in documents]}
 
 
@@ -293,7 +299,7 @@ def _resolve_category_name(name: str) -> str:
     return str(document.get("name", normalized))
 
 
-def create_template_category(*, name: str, created_by: str | None = None) -> dict:
+def create_template_category(*, name: str, priority: int = 0, created_by: str | None = None) -> dict:
     _ensure_template_categories()
     normalized = _normalize_category_name(name)
     document = {
@@ -302,6 +308,7 @@ def create_template_category(*, name: str, created_by: str | None = None) -> dic
         "normalizedName": normalized.casefold(),
         "subcategories": [],
         "sortOrder": _category_collection().count_documents({}),
+        "priority": max(0, int(priority)),
         "createdAt": datetime.now(timezone.utc),
         "createdBy": created_by or "",
     }
@@ -312,7 +319,7 @@ def create_template_category(*, name: str, created_by: str | None = None) -> dic
     return _serialize_category(document)
 
 
-def update_template_category(*, category_id: str, name: str) -> dict | None:
+def update_template_category(*, category_id: str, name: str, priority: int | None = None) -> dict | None:
     _ensure_template_categories()
     document = _category_collection().find_one({"id": category_id})
     if not document:
@@ -329,16 +336,16 @@ def update_template_category(*, category_id: str, name: str) -> dict | None:
         {"category": old_name}, {"$set": {"category": normalized}}
     )
     try:
-        _category_collection().update_one(
-            {"id": category_id},
-            {"$set": {"name": normalized, "normalizedName": normalized.casefold()}},
-        )
+        updates = {"name": normalized, "normalizedName": normalized.casefold()}
+        if priority is not None:
+            updates["priority"] = max(0, int(priority))
+        _category_collection().update_one({"id": category_id}, {"$set": updates})
     except Exception:
         _template_collection().update_many(
             {"category": normalized}, {"$set": {"category": old_name}}
         )
         raise
-    return _serialize_category({**document, "name": normalized, "normalizedName": normalized.casefold()})
+    return _serialize_category({**document, "name": normalized, "normalizedName": normalized.casefold(), **({"priority": max(0, int(priority))} if priority is not None else {})})
 
 
 def create_template_subcategory(

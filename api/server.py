@@ -208,6 +208,7 @@ class TemplateDeletePayload(BaseModel):
 
 class TemplateCategoryPayload(BaseModel):
     name: str
+    priority: int = 0
     code: str
 
 
@@ -479,6 +480,7 @@ def admin_create_template_category(request: Request, payload: TemplateCategoryPa
     try:
         return create_template_category(
             name=payload.name,
+            priority=payload.priority,
             created_by=admin.get("email"),
         )
     except ValueError as exc:
@@ -495,7 +497,7 @@ def admin_update_template_category(
     if payload.code.strip() != _admin_account_status_code():
         raise HTTPException(status_code=403, detail="Invalid admin security code")
     try:
-        category = update_template_category(category_id=category_id, name=payload.name)
+        category = update_template_category(category_id=category_id, name=payload.name, priority=payload.priority)
     except ValueError as exc:
         raise HTTPException(status_code=400, detail=str(exc)) from exc
     except RuntimeError as exc:

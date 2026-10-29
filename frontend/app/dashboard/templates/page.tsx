@@ -114,6 +114,7 @@ export default function TemplatesPage() {
   const [editError, setEditError] = useState("");
 
   const [categoryName, setCategoryName] = useState("");
+  const [categoryPriority, setCategoryPriority] = useState("0");
   const [editingCategory, setEditingCategory] = useState<AdminTemplateCategoryItem | null>(null);
   const [pendingCategory, setPendingCategory] = useState<AdminTemplateCategoryItem | null>(null);
   const [subcategoryDraft, setSubcategoryDraft] = useState<SubcategoryDraft | null>(null);
@@ -168,17 +169,19 @@ export default function TemplatesPage() {
     onSuccess: () => void invalidateTemplateData(),
   });
   const createCategoryMutation = useMutation({
-    mutationFn: ({ name, code }: { name: string; code: string }) => createAdminTemplateCategory(name, code),
+    mutationFn: ({ name, priority, code }: { name: string; priority: number; code: string }) => createAdminTemplateCategory(name, priority, code),
     onSuccess: () => {
       setCategoryName("");
+      setCategoryPriority("0");
       void invalidateTemplateData();
     },
   });
   const updateCategoryMutation = useMutation({
-    mutationFn: ({ id, name, code }: { id: string; name: string; code: string }) => updateAdminTemplateCategory(id, name, code),
+    mutationFn: ({ id, name, priority, code }: { id: string; name: string; priority: number; code: string }) => updateAdminTemplateCategory(id, name, priority, code),
     onSuccess: () => {
       setEditingCategory(null);
       setCategoryName("");
+      setCategoryPriority("0");
       void invalidateTemplateData();
     },
   });
@@ -370,9 +373,9 @@ export default function TemplatesPage() {
       } else if (pendingAction === "delete-template" && pendingDelete) {
         await deleteMutation.mutateAsync({ id: pendingDelete.id, code: securityCode });
       } else if (pendingAction === "create-category") {
-        await createCategoryMutation.mutateAsync({ name: categoryName, code: securityCode });
+        await createCategoryMutation.mutateAsync({ name: categoryName, priority: Math.max(0, Number(categoryPriority) || 0), code: securityCode });
       } else if (pendingAction === "edit-category" && editingCategory) {
-        await updateCategoryMutation.mutateAsync({ id: editingCategory.id, name: categoryName, code: securityCode });
+        await updateCategoryMutation.mutateAsync({ id: editingCategory.id, name: categoryName, priority: Math.max(0, Number(categoryPriority) || 0), code: securityCode });
       } else if (pendingAction === "delete-category" && pendingCategory) {
         await deleteCategoryMutation.mutateAsync({ id: pendingCategory.id, code: securityCode });
       } else if (pendingAction === "save-subcategory" && subcategoryDraft) {
@@ -429,6 +432,10 @@ export default function TemplatesPage() {
 
         <form onSubmit={submitCategory} className="mt-5 flex flex-col gap-3 sm:flex-row">
           <input value={categoryName} onChange={(event) => setCategoryName(event.target.value)} maxLength={60} placeholder="e.g. Automotive" className="h-11 min-w-0 flex-1 rounded-xl border px-3 text-sm outline-none focus:ring-2 focus:ring-[#8A1253]/15" style={{ borderColor: DASH.border }} />
+          <label className="flex h-11 items-center gap-2 rounded-xl border px-3 text-xs font-semibold" style={{ borderColor: DASH.border, color: DASH.muted }} title="Lower numbers appear first in the customer gallery">
+            Priority
+            <input type="number" min="0" step="1" value={categoryPriority} onChange={(event) => setCategoryPriority(event.target.value)} className="w-14 bg-transparent text-sm font-bold text-[#17203b] outline-none" />
+          </label>
           {editingCategory ? <button type="button" onClick={() => { setEditingCategory(null); setCategoryName(""); }} className="h-11 rounded-xl border px-4 text-sm font-bold" style={{ borderColor: DASH.border, color: DASH.muted }}>Cancel</button> : null}
           <button disabled={!categoryName.trim()} className="inline-flex h-11 items-center justify-center gap-2 rounded-xl px-5 text-sm font-bold text-white disabled:opacity-60" style={{ backgroundColor: DASH.plum }}><FolderPlus className="h-4 w-4" />{editingCategory ? "Rename category" : "Add category"}</button>
         </form>
@@ -442,9 +449,9 @@ export default function TemplatesPage() {
             {categories.map((category) => (
               <article key={category.id} className="rounded-2xl border p-4" style={{ borderColor: DASH.border }}>
                 <div className="flex items-start justify-between gap-3">
-                  <div className="min-w-0"><h3 className="truncate text-sm font-bold" style={{ color: DASH.heading }}>{category.name}</h3><p className="mt-0.5 text-xs" style={{ color: DASH.muted }}>{category.templateCount} templates · {category.subcategories.length} subcategories</p></div>
+                  <div className="min-w-0"><h3 className="truncate text-sm font-bold" style={{ color: DASH.heading }}>{category.name}</h3><p className="mt-0.5 text-xs" style={{ color: DASH.muted }}>Priority {category.priority ?? category.sortOrder ?? 0} · {category.templateCount} templates · {category.subcategories.length} subcategories</p></div>
                   <div className="flex shrink-0 gap-1">
-                    <button type="button" onClick={() => { setEditingCategory(category); setCategoryName(category.name); }} aria-label={`Rename ${category.name}`} className="rounded-lg p-2 hover:bg-[#FCF8FB]" style={{ color: DASH.plum }}><Pencil className="h-4 w-4" /></button>
+                    <button type="button" onClick={() => { setEditingCategory(category); setCategoryName(category.name); setCategoryPriority(String(category.priority ?? category.sortOrder ?? 0)); }} aria-label={`Edit ${category.name}`} className="rounded-lg p-2 hover:bg-[#FCF8FB]" style={{ color: DASH.plum }}><Pencil className="h-4 w-4" /></button>
                     <button type="button" disabled={category.templateCount > 0} onClick={() => { setPendingCategory(category); openSecurity("delete-category"); }} aria-label={`Delete ${category.name}`} title={category.templateCount ? "Remove category assignments first" : "Delete category"} className="rounded-lg p-2 text-rose-600 hover:bg-rose-50 disabled:opacity-30"><Trash2 className="h-4 w-4" /></button>
                   </div>
                 </div>

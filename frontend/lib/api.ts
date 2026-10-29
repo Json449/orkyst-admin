@@ -445,6 +445,7 @@ export type AdminTemplateCategoryItem = {
   name: string;
   templateCount: number;
   sortOrder: number;
+  priority: number;
   subcategories: AdminTemplateSubcategoryItem[];
   createdAt: string;
 };
@@ -509,14 +510,14 @@ export function fetchAdminTemplateCategories() {
   return getJson<AdminTemplateCategoriesData>("/api/admin/template-categories");
 }
 
-export function createAdminTemplateCategory(name: string, code: string) {
-  return postJson<AdminTemplateCategoryItem>("/api/admin/template-categories", { name, code });
+export function createAdminTemplateCategory(name: string, priority: number, code: string) {
+  return postJson<AdminTemplateCategoryItem>("/api/admin/template-categories", { name, priority, code });
 }
 
-export function updateAdminTemplateCategory(categoryId: string, name: string, code: string) {
+export function updateAdminTemplateCategory(categoryId: string, name: string, priority: number, code: string) {
   return putJson<AdminTemplateCategoryItem>(
     `/api/admin/template-categories/${encodeURIComponent(categoryId)}`,
-    { name, code },
+    { name, priority, code },
   );
 }
 
