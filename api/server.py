@@ -11,13 +11,15 @@ import json
 import logging
 import os
 import sys
+import threading
 from collections import defaultdict
 from pathlib import Path
 
-from dotenv import load_dotenv
+from dotenv import dotenv_values, load_dotenv
 from fastapi import FastAPI, HTTPException, Query, Request, Response
 from fastapi.middleware.cors import CORSMiddleware
-from pydantic import BaseModel
+from fastapi.staticfiles import StaticFiles
+from pydantic import BaseModel, Field
 
 ROOT = Path(__file__).parent.parent
 sys.path.insert(0, str(ROOT))
@@ -26,6 +28,19 @@ environment_file = ROOT / f".env.{environment}"
 if environment in {"staging", "production"} and environment_file.exists():
     load_dotenv(environment_file, override=False)
 load_dotenv(ROOT / ".env", override=False)
+if environment not in {"production", "staging"}:
+    backend_env = ROOT.parent / "backend" / ".env"
+    if backend_env.exists():
+        legacy_template_mongo_uri = os.getenv("MONGODB_CONNECTION_URL", "").strip()
+        load_dotenv(backend_env, override=False)
+        # Templates are consumed by the main Orkyst API, so local Admin uploads
+        # must use that same Mongo database even if this analytics app has its
+        # own Mongo connection for dashboard data.
+        backend_mongo_uri = dotenv_values(backend_env).get("MONGODB_CONNECTION_URL", "")
+        if backend_mongo_uri:
+            os.environ.setdefault("ORKYST_TEMPLATE_MONGO_URI", backend_mongo_uri)
+        if legacy_template_mongo_uri:
+            os.environ.setdefault("ORKYST_TEMPLATE_LEGACY_MONGO_URI", legacy_template_mongo_uri)
 
 from pipeline.processor import process, CONTENT_TYPE_LABELS, PLATFORM_LABELS
 from pipeline.retriever import fetch_graph_context
@@ -43,6 +58,20 @@ from pipeline.admin_user_analytics import get_admin_user_analytics
 from pipeline.admin_user_activity_detail import get_admin_user_activity_detail
 from pipeline.admin_organizations import get_admin_organization, list_admin_organizations
 from pipeline.admin_recent_activity import list_admin_recent_activity
+from pipeline.admin_templates import (
+    create_admin_template,
+    create_admin_templates,
+    create_template_category,
+    create_template_subcategory,
+    delete_admin_template,
+    delete_template_category,
+    delete_template_subcategory,
+    list_admin_templates,
+    list_template_categories,
+    update_admin_template,
+    update_template_category,
+    update_template_subcategory,
+)
 from api.admin_auth import (
     SESSION_MAX_AGE_SECONDS,
     authenticate_admin,
@@ -73,6 +102,33 @@ PLATFORM_COLORS = {
 app = FastAPI(title="Orkyst Analytics API")
 ensure_admin_db()
 logger = logging.getLogger(__name__)
+# Backward compatibility only: previously uploaded local templates remain
+# readable at their existing URLs. New template uploads never write here.
+legacy_template_uploads = ROOT / "data" / "template-uploads"
+if legacy_template_uploads.is_dir():
+    app.mount(
+        "/uploads/templates",
+        StaticFiles(directory=str(legacy_template_uploads)),
+        name="legacy-template-uploads",
+    )
+
+
+@app.on_event("startup")
+def sync_legacy_admin_templates_on_startup():
+    def run_template_migration_check() -> None:
+        try:
+            list_admin_templates()
+        except Exception as exc:
+            logger.warning("Template migration check skipped: %s", exc)
+
+    # Atlas can occasionally take several seconds to select a primary. This
+    # migration is maintenance work, so it must not delay API readiness and
+    # make every admin route appear offline while MongoDB reconnects.
+    threading.Thread(
+        target=run_template_migration_check,
+        name="admin-template-migration",
+        daemon=True,
+    ).start()
 
 cors_origins = [
     origin.strip()
@@ -83,7 +139,7 @@ cors_origins = [
 app.add_middleware(
     CORSMiddleware,
     allow_origins=cors_origins,
-    allow_methods=["GET", "POST"],
+    allow_methods=["GET", "POST", "PUT", "DELETE"],
     allow_headers=["*"],
     allow_credentials=True,
 )
@@ -107,6 +163,57 @@ class OnboardingEmailPayload(BaseModel):
     temporary_password: str
     login_url: str
     team_name: str = "Sukli"
+    code: str
+
+
+class TemplateAssignmentPayload(BaseModel):
+    categoryId: str
+    subcategoryIds: list[str] = Field(default_factory=list)
+
+
+class TemplateUploadPayload(BaseModel):
+    name: str = ""
+    description: str = ""
+    category: str = ""
+    assignments: list[TemplateAssignmentPayload] = Field(default_factory=list)
+    imageData: str
+    code: str
+
+
+class TemplateBatchItemPayload(BaseModel):
+    name: str = ""
+    description: str = ""
+    imageData: str
+
+
+class TemplateBatchUploadPayload(BaseModel):
+    category: str = ""
+    assignments: list[TemplateAssignmentPayload] = Field(default_factory=list)
+    items: list[TemplateBatchItemPayload]
+    code: str
+
+
+class TemplateUpdatePayload(BaseModel):
+    name: str = ""
+    description: str = ""
+    category: str = ""
+    assignments: list[TemplateAssignmentPayload] = Field(default_factory=list)
+    imageData: str | None = None
+    code: str
+
+
+class TemplateDeletePayload(BaseModel):
+    code: str
+
+
+class TemplateCategoryPayload(BaseModel):
+    name: str
+    code: str
+
+
+class TemplateSubcategoryPayload(BaseModel):
+    name: str
+    imageData: str | None = None
     code: str
 
 
@@ -344,6 +451,234 @@ def recommendations_analytics(request: Request, user_id: str = Query(default="lo
 def admin_user_stats(request: Request):
     _require_admin_session(request)
     return build_admin_stats()
+
+
+@app.get("/api/admin/templates")
+def admin_templates(request: Request):
+    _require_admin_session(request)
+    try:
+        return list_admin_templates()
+    except RuntimeError as exc:
+        raise HTTPException(status_code=503, detail=str(exc)) from exc
+
+
+@app.get("/api/admin/template-categories")
+def admin_template_categories(request: Request):
+    _require_admin_session(request)
+    try:
+        return list_template_categories()
+    except RuntimeError as exc:
+        raise HTTPException(status_code=503, detail=str(exc)) from exc
+
+
+@app.post("/api/admin/template-categories")
+def admin_create_template_category(request: Request, payload: TemplateCategoryPayload):
+    admin = _require_admin_session(request)
+    if payload.code.strip() != _admin_account_status_code():
+        raise HTTPException(status_code=403, detail="Invalid admin security code")
+    try:
+        return create_template_category(
+            name=payload.name,
+            created_by=admin.get("email"),
+        )
+    except ValueError as exc:
+        raise HTTPException(status_code=400, detail=str(exc)) from exc
+    except RuntimeError as exc:
+        raise HTTPException(status_code=503, detail=str(exc)) from exc
+
+
+@app.put("/api/admin/template-categories/{category_id}")
+def admin_update_template_category(
+    request: Request, category_id: str, payload: TemplateCategoryPayload
+):
+    _require_admin_session(request)
+    if payload.code.strip() != _admin_account_status_code():
+        raise HTTPException(status_code=403, detail="Invalid admin security code")
+    try:
+        category = update_template_category(category_id=category_id, name=payload.name)
+    except ValueError as exc:
+        raise HTTPException(status_code=400, detail=str(exc)) from exc
+    except RuntimeError as exc:
+        raise HTTPException(status_code=503, detail=str(exc)) from exc
+    if not category:
+        raise HTTPException(status_code=404, detail="Template category not found")
+    return category
+
+
+@app.delete("/api/admin/template-categories/{category_id}")
+def admin_delete_template_category(
+    request: Request, category_id: str, payload: TemplateDeletePayload
+):
+    _require_admin_session(request)
+    if payload.code.strip() != _admin_account_status_code():
+        raise HTTPException(status_code=403, detail="Invalid admin security code")
+    try:
+        deleted = delete_template_category(category_id)
+    except ValueError as exc:
+        raise HTTPException(status_code=400, detail=str(exc)) from exc
+    except RuntimeError as exc:
+        raise HTTPException(status_code=503, detail=str(exc)) from exc
+    if not deleted:
+        raise HTTPException(status_code=404, detail="Template category not found")
+    return {"status": 200}
+
+
+@app.post("/api/admin/template-categories/{category_id}/subcategories")
+def admin_create_template_subcategory(
+    request: Request, category_id: str, payload: TemplateSubcategoryPayload
+):
+    _require_admin_session(request)
+    if payload.code.strip() != _admin_account_status_code():
+        raise HTTPException(status_code=403, detail="Invalid admin security code")
+    try:
+        subcategory = create_template_subcategory(
+            category_id=category_id, name=payload.name, image_data=payload.imageData
+        )
+    except ValueError as exc:
+        raise HTTPException(status_code=400, detail=str(exc)) from exc
+    except RuntimeError as exc:
+        raise HTTPException(status_code=503, detail=str(exc)) from exc
+    if not subcategory:
+        raise HTTPException(status_code=404, detail="Template category not found")
+    return subcategory
+
+
+@app.put("/api/admin/template-categories/{category_id}/subcategories/{subcategory_id}")
+def admin_update_template_subcategory(
+    request: Request,
+    category_id: str,
+    subcategory_id: str,
+    payload: TemplateSubcategoryPayload,
+):
+    _require_admin_session(request)
+    if payload.code.strip() != _admin_account_status_code():
+        raise HTTPException(status_code=403, detail="Invalid admin security code")
+    try:
+        subcategory = update_template_subcategory(
+            category_id=category_id,
+            subcategory_id=subcategory_id,
+            name=payload.name,
+            image_data=payload.imageData,
+        )
+    except ValueError as exc:
+        raise HTTPException(status_code=400, detail=str(exc)) from exc
+    except RuntimeError as exc:
+        raise HTTPException(status_code=503, detail=str(exc)) from exc
+    if not subcategory:
+        raise HTTPException(status_code=404, detail="Template subcategory not found")
+    return subcategory
+
+
+@app.delete("/api/admin/template-categories/{category_id}/subcategories/{subcategory_id}")
+def admin_delete_template_subcategory(
+    request: Request,
+    category_id: str,
+    subcategory_id: str,
+    payload: TemplateDeletePayload,
+):
+    _require_admin_session(request)
+    if payload.code.strip() != _admin_account_status_code():
+        raise HTTPException(status_code=403, detail="Invalid admin security code")
+    try:
+        deleted = delete_template_subcategory(
+            category_id=category_id, subcategory_id=subcategory_id
+        )
+    except ValueError as exc:
+        raise HTTPException(status_code=400, detail=str(exc)) from exc
+    except RuntimeError as exc:
+        raise HTTPException(status_code=503, detail=str(exc)) from exc
+    if not deleted:
+        raise HTTPException(status_code=404, detail="Template subcategory not found")
+    return {"status": 200}
+
+
+@app.post("/api/admin/templates")
+def admin_create_template(request: Request, payload: TemplateUploadPayload):
+    _require_admin_session(request)
+    if payload.code.strip() != _admin_account_status_code():
+        raise HTTPException(status_code=403, detail="Invalid admin security code")
+    try:
+        return create_admin_template(
+            name=payload.name,
+            category=payload.category,
+            description=payload.description,
+            taxonomy_assignments=[
+                {"categoryId": item.categoryId, "subcategoryIds": item.subcategoryIds}
+                for item in payload.assignments
+            ],
+            image_data=payload.imageData,
+            uploaded_by=_require_admin_session(request).get("email"),
+        )
+    except ValueError as exc:
+        raise HTTPException(status_code=400, detail=str(exc)) from exc
+    except RuntimeError as exc:
+        raise HTTPException(status_code=503, detail=str(exc)) from exc
+
+
+@app.post("/api/admin/templates/batch")
+def admin_create_templates_batch(
+    request: Request, payload: TemplateBatchUploadPayload
+):
+    admin = _require_admin_session(request)
+    if payload.code.strip() != _admin_account_status_code():
+        raise HTTPException(status_code=403, detail="Invalid admin security code")
+    try:
+        return create_admin_templates(
+            items=[
+                {"name": item.name, "description": item.description, "imageData": item.imageData}
+                for item in payload.items
+            ],
+            category=payload.category,
+            taxonomy_assignments=[
+                {"categoryId": item.categoryId, "subcategoryIds": item.subcategoryIds}
+                for item in payload.assignments
+            ],
+            uploaded_by=admin.get("email"),
+        )
+    except ValueError as exc:
+        raise HTTPException(status_code=400, detail=str(exc)) from exc
+    except RuntimeError as exc:
+        raise HTTPException(status_code=503, detail=str(exc)) from exc
+
+
+@app.put("/api/admin/templates/{template_id}")
+def admin_update_template(request: Request, template_id: str, payload: TemplateUpdatePayload):
+    _require_admin_session(request)
+    if payload.code.strip() != _admin_account_status_code():
+        raise HTTPException(status_code=403, detail="Invalid admin security code")
+    try:
+        template = update_admin_template(
+            template_id=template_id,
+            name=payload.name,
+            category=payload.category,
+            description=payload.description,
+            taxonomy_assignments=[
+                {"categoryId": item.categoryId, "subcategoryIds": item.subcategoryIds}
+                for item in payload.assignments
+            ],
+            image_data=payload.imageData,
+        )
+    except ValueError as exc:
+        raise HTTPException(status_code=400, detail=str(exc)) from exc
+    except RuntimeError as exc:
+        raise HTTPException(status_code=503, detail=str(exc)) from exc
+    if not template:
+        raise HTTPException(status_code=404, detail="Template not found")
+    return template
+
+
+@app.delete("/api/admin/templates/{template_id}")
+def admin_delete_template(request: Request, template_id: str, payload: TemplateDeletePayload):
+    _require_admin_session(request)
+    if payload.code.strip() != _admin_account_status_code():
+        raise HTTPException(status_code=403, detail="Invalid admin security code")
+    try:
+        deleted = delete_admin_template(template_id)
+    except RuntimeError as exc:
+        raise HTTPException(status_code=503, detail=str(exc)) from exc
+    if not deleted:
+        raise HTTPException(status_code=404, detail="Template not found")
+    return {"status": 200}
 
 
 @app.get("/api/admin/recent-activity")

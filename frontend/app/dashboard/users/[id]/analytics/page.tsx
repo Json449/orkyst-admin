@@ -8,34 +8,22 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import {
   ArrowLeft,
   BarChart3,
-  CalendarClock,
   CalendarDays,
-  CalendarPlus2,
   ChevronLeft,
   ChevronRight,
-  CircleAlert,
-  CircleCheckBig,
   Clock3,
   Download,
   ExternalLink,
-  FilePlus2,
   FileText,
   Filter,
   Grid2X2,
   ImageIcon,
   ImageOff,
-  Link2,
   List,
   Maximize2,
-  PencilLine,
   Play,
   RefreshCw,
   RotateCcw,
-  Send,
-  Share2,
-  Sparkles,
-  Trash2,
-  TrendingUp,
   Users,
   Video,
   X,
@@ -44,40 +32,30 @@ import {
 import { DASH } from "@/components/dashboard/theme";
 import {
   fetchAdminUserAnalytics,
-  type AdminUserAnalyticsActivity,
   type AdminUserAnalyticsAsset,
   type AdminUserAnalyticsData,
 } from "@/lib/api";
 
 type Filters = {
-  dateFrom: string;
-  dateTo: string;
   contentType: string;
-  activityType: string;
   platform: string;
   campaignId: string;
 };
 
 type MetricDefinition = {
-  key: "posts" | "images" | "reels" | "calendars" | "ai" | "social";
+  key: "posts" | "images" | "reels" | "calendars";
   label: string;
   value: number;
   icon: LucideIcon;
   color: string;
   featured?: boolean;
-  values: number[];
 };
 
 const EMPTY_FILTERS: Filters = {
-  dateFrom: "",
-  dateTo: "",
   contentType: "all",
-  activityType: "all",
   platform: "all",
   campaignId: "all",
 };
-
-const ACTIVITY_PAGE_SIZE = 20;
 
 const PANEL_CLASS =
   "overflow-hidden rounded-xl border bg-white shadow-[0_5px_18px_rgba(39,23,52,0.025)]";
@@ -101,21 +79,6 @@ function formatDate(value?: string | null, withTime = false) {
     year: "numeric",
     ...(withTime ? { hour: "numeric", minute: "2-digit" } : {}),
   }).format(date);
-}
-
-function formatTime(value?: string | null) {
-  if (!value) return "—";
-  const date = new Date(value);
-  if (Number.isNaN(date.getTime())) return "—";
-  return new Intl.DateTimeFormat("en", { hour: "numeric", minute: "2-digit" }).format(date);
-}
-
-function formatFilterDate(value: string) {
-  if (!value) return "";
-  const date = new Date(`${value}T00:00:00`);
-  return Number.isNaN(date.getTime())
-    ? value
-    : new Intl.DateTimeFormat("en", { month: "short", day: "numeric", year: "numeric" }).format(date);
 }
 
 function titleCase(value: string) {
@@ -149,43 +112,14 @@ function videoPosterUrl(asset: AdminUserAnalyticsAsset) {
   return null;
 }
 
-function trendFor(values: number[]) {
-  if (!values.length) return 0;
-  const middle = Math.max(1, Math.floor(values.length / 2));
-  const previous = values.slice(0, middle).reduce((sum, value) => sum + value, 0);
-  const current = values.slice(middle).reduce((sum, value) => sum + value, 0);
-  if (!previous) return current ? 100 : 0;
-  return Math.round(((current - previous) / previous) * 1000) / 10;
-}
-
-function Sparkline({ values, color, inverted = false }: { values: number[]; color: string; inverted?: boolean }) {
-  const safeValues = values.length > 1 ? values : [0, values[0] || 0, 0, values[0] || 0, 0];
-  const max = Math.max(...safeValues, 1);
-  const points = safeValues
-    .map((value, index) => {
-      const x = (index / Math.max(safeValues.length - 1, 1)) * 148;
-      const y = 30 - (value / max) * 23;
-      return `${x.toFixed(1)},${y.toFixed(1)}`;
-    })
-    .join(" ");
-
-  return (
-    <svg aria-hidden viewBox="0 0 148 34" className="h-8 w-full" preserveAspectRatio="none">
-      <line x1="0" y1="31" x2="148" y2="31" stroke={inverted ? "rgba(255,255,255,.18)" : "#F0EDF2"} />
-      <polyline points={points} fill="none" stroke={color} strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" />
-    </svg>
-  );
-}
-
 function MetricCard({ metric }: { metric: MetricDefinition }) {
-  const trend = trendFor(metric.values);
   const Icon = metric.icon;
   const featuredStyle = metric.featured
     ? { background: "linear-gradient(135deg,#751158 0%,#A20D68 100%)", borderColor: "#8F105B" }
     : { background: "#FFFFFF", borderColor: DASH.border };
 
   return (
-    <article className="relative min-w-0 overflow-hidden rounded-xl border px-4 pb-2.5 pt-3.5" style={featuredStyle}>
+    <article className="relative min-w-0 overflow-hidden rounded-xl border px-4 py-4" style={featuredStyle}>
       {metric.featured && <span className="absolute -right-8 -top-10 h-28 w-28 rounded-full bg-white/10 blur-2xl" />}
       <div className="relative flex items-start justify-between gap-3">
         <p className="truncate text-[11px] font-bold" style={{ color: metric.featured ? "#FFFFFF" : DASH.heading }}>{metric.label}</p>
@@ -194,14 +128,7 @@ function MetricCard({ metric }: { metric: MetricDefinition }) {
         </span>
       </div>
       <strong className="relative mt-1 block text-[24px] leading-none tracking-[-0.04em]" style={{ color: metric.featured ? "#FFFFFF" : DASH.heading }}>{metric.value.toLocaleString()}</strong>
-      <div className="relative mt-2 flex items-center gap-1 text-[11px]" style={{ color: metric.featured ? "rgba(255,255,255,.8)" : trend >= 0 ? "#059669" : "#DC2626" }}>
-        <TrendingUp className={`h-3 w-3 ${trend < 0 ? "rotate-180" : ""}`} />
-        <span className="font-bold">{trend >= 0 ? "+" : ""}{trend}%</span>
-        <span style={{ color: metric.featured ? "rgba(255,255,255,.55)" : DASH.subtle }}>vs previous period</span>
-      </div>
-      <div className="relative mt-1">
-        <Sparkline values={metric.values} color={metric.featured ? "#FFFFFF" : metric.color} inverted={metric.featured} />
-      </div>
+      <p className="relative mt-3 text-[11px]" style={{ color: metric.featured ? "rgba(255,255,255,.72)" : DASH.muted }}>Generated content</p>
     </article>
   );
 }
@@ -216,58 +143,6 @@ function PlatformMark({ platform, size = "sm" }: { platform?: string | null; siz
       aria-label={platform ? titleCase(platform) : "Activity"}
     >
       {style.mark}
-    </span>
-  );
-}
-
-function ActivityIcon({ activityType, platform }: { activityType: string; platform?: string | null }) {
-  const type = activityType.toLowerCase();
-  let Icon: LucideIcon = FileText;
-  let color = "#A30D70";
-  let background = "#F8EAF4";
-
-  if (type.includes("failed")) {
-    Icon = CircleAlert;
-    color = "#DC2626";
-    background = "#FEF2F2";
-  } else if (type.includes("delete") || type.includes("removed")) {
-    Icon = Trash2;
-    color = "#DC2626";
-    background = "#FEF2F2";
-  } else if (type.includes("approved")) {
-    Icon = CircleCheckBig;
-    color = "#059669";
-    background = "#ECFDF5";
-  } else if (type.includes("publish")) {
-    Icon = Send;
-    color = "#2563EB";
-    background = "#EFF6FF";
-  } else if (type.includes("schedule")) {
-    Icon = CalendarClock;
-  } else if (type.includes("calendar_created")) {
-    Icon = CalendarPlus2;
-  } else if (type.includes("image") || type.includes("artwork")) {
-    Icon = ImageIcon;
-    color = "#DB2777";
-    background = "#FDF2F8";
-  } else if (type.includes("reel")) {
-    Icon = Video;
-    color = "#7C3AED";
-    background = "#F5F3FF";
-  } else if (type.includes("edit") || type.includes("updated") || type.includes("synced")) {
-    Icon = PencilLine;
-  } else if (type.includes("social") || type.includes("connected")) {
-    Icon = Link2;
-    color = "#2563EB";
-    background = "#EFF6FF";
-  } else if (type.includes("created")) {
-    Icon = FilePlus2;
-  }
-
-  return (
-    <span className="relative flex h-8 w-8 shrink-0 items-center justify-center rounded-full" style={{ backgroundColor: background, color }}>
-      <Icon className="h-3.5 w-3.5" />
-      {platform && <span className="absolute -bottom-1 -right-1 rounded-full bg-white p-px"><PlatformMark platform={platform} /></span>}
     </span>
   );
 }
@@ -339,7 +214,7 @@ function ContentGallery({ data, activeType, onType, onPage }: { data: AdminUserA
   return (
     <section className={`${PANEL_CLASS} min-w-0`} data-testid="generated-media-panel">
       <div className="flex flex-wrap items-start justify-between gap-3 px-4 pb-2 pt-4">
-        <div><h2 className="text-[13px] font-bold" style={{ color: DASH.heading }}>Generated Media</h2><p className="mt-0.5 text-[10px]" style={{ color: DASH.muted }}>Real artwork, reels, and uploaded assets created by this user</p></div>
+        <div><h2 className="text-[13px] font-bold" style={{ color: DASH.heading }}>Generated content activity</h2><p className="mt-0.5 text-[10px]" style={{ color: DASH.muted }}>Posts, reels, artwork, and assets created by this user</p></div>
         <div className="flex items-center gap-2">
           <div className="flex rounded-lg border bg-white p-0.5" style={{ borderColor: DASH.border }}>
             <button type="button" aria-label="Grid view" onClick={() => setView("grid")} className="rounded-md p-1.5" style={{ backgroundColor: view === "grid" ? "#FCE9F3" : "transparent", color: view === "grid" ? DASH.plum : DASH.subtle }}><Grid2X2 className="h-3.5 w-3.5" /></button>
@@ -434,77 +309,45 @@ function ActivityOverview({ metrics }: { metrics: MetricDefinition[] }) {
 
   return (
     <section className={`${PANEL_CLASS} h-full px-4 py-4`}>
-      <h2 className="text-[13px] font-bold" style={{ color: DASH.heading }}>Activity Overview</h2><p className="mt-0.5 text-[10px]" style={{ color: DASH.muted }}>Breakdown of user activities</p>
+      <h2 className="text-[13px] font-bold" style={{ color: DASH.heading }}>Content breakdown</h2><p className="mt-0.5 text-[10px]" style={{ color: DASH.muted }}>Activity grouped by generated content type</p>
       <div className="mt-4 flex flex-col items-start gap-4 sm:flex-row sm:items-center">
-        <div className="relative flex h-[112px] w-[112px] shrink-0 items-center justify-center rounded-full" style={{ background: gradient }}><span className="flex h-[72px] w-[72px] flex-col items-center justify-center rounded-full bg-white"><strong className="text-[22px] leading-none" style={{ color: DASH.heading }}>{total.toLocaleString()}</strong><span className="mt-1 text-[11px]" style={{ color: DASH.muted }}>Total Activities</span></span></div>
+        <div className="relative flex h-[112px] w-[112px] shrink-0 items-center justify-center rounded-full" style={{ background: gradient }}><span className="flex h-[72px] w-[72px] flex-col items-center justify-center rounded-full bg-white"><strong className="text-[22px] leading-none" style={{ color: DASH.heading }}>{total.toLocaleString()}</strong><span className="mt-1 text-[11px]" style={{ color: DASH.muted }}>Generated</span></span></div>
         <div className="min-w-0 flex-1 space-y-2">{items.map((item) => <div key={item.label} className="flex items-center gap-2 text-[11px]"><span className="h-1.5 w-1.5 shrink-0 rounded-full" style={{ backgroundColor: item.color }} /><span className="min-w-0 flex-1 truncate" style={{ color: DASH.muted }}>{item.label}</span><strong style={{ color: DASH.heading }}>{item.value}</strong><span className="w-8 text-right" style={{ color: DASH.subtle }}>{total ? Math.round((item.value / total) * 100) : 0}%</span></div>)}</div>
       </div>
     </section>
   );
 }
 
-function PlatformDistribution({ activities, gallery }: { activities: AdminUserAnalyticsActivity[]; gallery: AdminUserAnalyticsAsset[] }) {
+function PlatformDistribution({ gallery }: { gallery: AdminUserAnalyticsAsset[] }) {
   const rows = useMemo(() => {
     const counts = new Map<string, number>();
-    activities.forEach((item) => item.platform && counts.set(item.platform.toLowerCase(), (counts.get(item.platform.toLowerCase()) || 0) + 1));
     gallery.forEach((item) => item.platform && counts.set(item.platform.toLowerCase(), (counts.get(item.platform.toLowerCase()) || 0) + 1));
     return [...counts.entries()].sort((a, b) => b[1] - a[1]).slice(0, 4);
-  }, [activities, gallery]);
+  }, [gallery]);
   const total = rows.reduce((sum, [, value]) => sum + value, 0);
   const max = Math.max(...rows.map(([, value]) => value), 1);
 
   return (
     <section className={`${PANEL_CLASS} h-full px-4 py-4`}>
-      <h2 className="text-[13px] font-bold" style={{ color: DASH.heading }}>Platform Distribution</h2><p className="mt-0.5 text-[10px]" style={{ color: DASH.muted }}>Activities by social platform</p>
+      <h2 className="text-[13px] font-bold" style={{ color: DASH.heading }}>Platform distribution</h2><p className="mt-0.5 text-[10px]" style={{ color: DASH.muted }}>Generated content by social platform</p>
       {rows.length ? <div className="mt-5 space-y-4">{rows.map(([platform, value]) => { const style = PLATFORM_STYLES[platform] || { color: DASH.plum }; return <div key={platform}><div className="mb-1.5 flex items-center justify-between text-[11px]"><span className="capitalize" style={{ color: DASH.heading }}>{platform}</span><span style={{ color: DASH.muted }}>{value} ({total ? Math.round((value / total) * 100) : 0}%)</span></div><div className="h-1.5 overflow-hidden rounded-full bg-[#F1EFF3]"><div className="h-full rounded-full" style={{ width: `${(value / max) * 100}%`, backgroundColor: style.color }} /></div></div>; })}</div> : <p className="py-12 text-center text-[11px]" style={{ color: DASH.muted }}>No platform activity.</p>}
     </section>
   );
 }
 
-function TopCampaigns({ activities, gallery }: { activities: AdminUserAnalyticsActivity[]; gallery: AdminUserAnalyticsAsset[] }) {
+function TopCampaigns({ gallery }: { gallery: AdminUserAnalyticsAsset[] }) {
   const campaigns = useMemo(() => {
     const map = new Map<string, { count: number; image?: string | null }>();
-    activities.forEach((item) => { if (item.campaignName) { const entry = map.get(item.campaignName) || { count: 0 }; entry.count += 1; map.set(item.campaignName, entry); } });
     gallery.forEach((item) => { if (item.campaignName) { const entry = map.get(item.campaignName) || { count: 0 }; entry.count += 1; entry.image ||= item.thumbnailUrl || item.url; map.set(item.campaignName, entry); } });
     return [...map.entries()].sort((a, b) => b[1].count - a[1].count).slice(0, 4);
-  }, [activities, gallery]);
+  }, [gallery]);
   const total = campaigns.reduce((sum, [, item]) => sum + item.count, 0);
 
   return (
     <section className={`${PANEL_CLASS} h-full px-4 py-4`}>
-      <h2 className="text-[13px] font-bold" style={{ color: DASH.heading }}>Top Campaigns</h2><p className="mt-0.5 text-[10px]" style={{ color: DASH.muted }}>By activity count</p>
+      <h2 className="text-[13px] font-bold" style={{ color: DASH.heading }}>Top campaigns</h2><p className="mt-0.5 text-[10px]" style={{ color: DASH.muted }}>By generated content count</p>
       {campaigns.length ? <div className="mt-3 space-y-2.5">{campaigns.map(([name, item]) => <div key={name} className="flex items-center gap-2.5"><div className="flex h-8 w-8 shrink-0 items-center justify-center overflow-hidden rounded-md bg-[#F6EAF2]">{item.image ? <img src={mediaPreviewUrl(item.image) || ""} alt="" loading="lazy" className="h-full w-full object-cover" /> : <BarChart3 className="h-3.5 w-3.5" style={{ color: DASH.plum }} />}</div><p className="min-w-0 flex-1 truncate text-[11px] font-bold" style={{ color: DASH.heading }}>{name}</p><span className="shrink-0 text-[11px]" style={{ color: DASH.muted }}>{item.count} ({total ? Math.round((item.count / total) * 100) : 0}%)</span></div>)}</div> : <p className="py-12 text-center text-[11px]" style={{ color: DASH.muted }}>No campaign activity.</p>}
     </section>
-  );
-}
-
-function ActivityTimeline({ data, onPage }: { data: AdminUserAnalyticsData; onPage: (page: number) => void }) {
-  return (
-    <section id="activity-timeline" className={`${PANEL_CLASS} min-w-0 scroll-mt-4`} data-testid="activity-timeline-panel">
-      <div className="flex items-start justify-between gap-3 px-4 pb-2 pt-4"><div><h2 className="text-[13px] font-bold" style={{ color: DASH.heading }}>Activity Timeline</h2><p className="mt-0.5 text-[10px]" style={{ color: DASH.muted }}>Every recorded action for this user</p></div><span className="shrink-0 rounded-full bg-[#F8EAF4] px-2.5 py-1 text-[11px] font-bold" style={{ color: DASH.plum }}>{data.activityPagination.total.toLocaleString()} activities</span></div>
-      {data.activity.length ? <ol className="relative space-y-3 px-4 py-3"><span className="absolute bottom-5 left-[91px] top-5 w-px" style={{ backgroundColor: DASH.border }} aria-hidden />{data.activity.map((item) => <ActivityRow key={item.id} item={item} userId={data.user.id} />)}</ol> : <p className="px-5 py-12 text-center text-[11px]" style={{ color: DASH.muted }}>No activity matches these filters.</p>}
-      <Pagination {...data.activityPagination} onPage={onPage} compact />
-    </section>
-  );
-}
-
-function ActivityRow({ item, userId }: { item: AdminUserAnalyticsActivity; userId: string }) {
-  const isPublish = item.activityType.includes("published");
-  const isFailed = item.activityType.includes("failed");
-  return (
-    <li className="relative grid grid-cols-[56px_14px_minmax(0,1fr)] items-start gap-2">
-      <time className="pt-1 text-right text-[11px]" style={{ color: DASH.muted }}>{formatTime(item.createdAt)}</time>
-      <span className="relative z-10 mt-1.5 h-2 w-2 rounded-full ring-[3px] ring-white" style={{ backgroundColor: isFailed ? "#DC2626" : isPublish ? "#3974F6" : DASH.plum }} />
-      <Link href={`/dashboard/users/${encodeURIComponent(userId)}/analytics/activity/${encodeURIComponent(item.id)}`} className="min-w-0 rounded-lg px-1 py-0.5 transition hover:bg-[#FAF7FB]">
-        <div className="flex items-center gap-2">
-          <ActivityIcon activityType={item.activityType} platform={item.platform} />
-          <div className="min-w-0">
-            <p className="truncate text-[11px] font-bold" style={{ color: DASH.heading }}>{item.title}</p>
-            <p className="mt-0.5 truncate text-[11px]" style={{ color: DASH.muted }}>{item.description || titleCase(item.activityType)}</p>
-          </div>
-        </div>
-      </Link>
-    </li>
   );
 }
 
@@ -512,16 +355,13 @@ export default function UserAnalyticsPage() {
   const params = useParams<{ id: string }>();
   const [filters, setFilters] = useState<Filters>(EMPTY_FILTERS);
   const [galleryPage, setGalleryPage] = useState(1);
-  const [activityPage, setActivityPage] = useState(1);
-  const [activeTab, setActiveTab] = useState<"overview" | "media" | "activity">("overview");
+  const [activeTab, setActiveTab] = useState<"overview" | "content">("overview");
   const analyticsQuery = useQuery({
-    queryKey: ["admin", "user", params.id, "analytics", { filters, galleryPage, activityPage }],
+    queryKey: ["admin", "user", params.id, "analytics", { filters, galleryPage }],
     queryFn: () => fetchAdminUserAnalytics(params.id, {
       ...filters,
       galleryPage,
-      galleryPageSize: 6,
-      activityPage,
-      activityPageSize: ACTIVITY_PAGE_SIZE,
+      galleryPageSize: 12,
     }),
     placeholderData: (previousData) => previousData,
   });
@@ -532,31 +372,18 @@ export default function UserAnalyticsPage() {
   function updateFilter(key: keyof Filters, value: string) {
     setFilters((current) => ({ ...current, [key]: value }));
     setGalleryPage(1);
-    setActivityPage(1);
   }
 
   if (loading && !data) return <div className="space-y-3"><div className="h-5 w-56 max-w-full animate-pulse rounded bg-[#EDEAF0]" /><div className="h-24 animate-pulse rounded-xl bg-white" /><div className="h-24 animate-pulse rounded-xl bg-white" /><div className="grid grid-cols-2 gap-3 xl:grid-cols-6">{[0, 1, 2, 3, 4, 5].map((item) => <div key={item} className="h-28 animate-pulse rounded-xl bg-white" />)}</div><div className="h-72 animate-pulse rounded-xl bg-white" /></div>;
   if (analyticsQuery.isError || !data) return <div className="rounded-2xl border bg-white px-6 py-16 text-center" style={{ borderColor: DASH.border }}><p className="text-lg font-bold" style={{ color: DASH.heading }}>User analytics could not be loaded</p><p className="mt-2 text-sm" style={{ color: DASH.muted }}>{error || "User not found"}</p><div className="mt-6 flex justify-center gap-3"><Link href={`/dashboard/users/${params.id}`} className="rounded-xl border px-4 py-2 text-sm font-semibold" style={{ borderColor: DASH.border, color: DASH.heading }}>Back to profile</Link><button onClick={() => analyticsQuery.refetch()} className="flex items-center gap-2 rounded-xl px-4 py-2 text-sm font-semibold text-white" style={{ backgroundColor: DASH.plum }}><RefreshCw className="h-4 w-4" />Try again</button></div></div>;
 
   const options = data.filterOptions;
-  const timeline = data.contentTimeline;
-  const metricValues = {
-    posts: timeline.map((item) => item.posts),
-    images: timeline.map((item) => item.images),
-    reels: timeline.map((item) => item.reels),
-    calendars: timeline.map((item) => item.calendars),
-  };
   const metrics: MetricDefinition[] = [
-    { key: "posts", label: "Posts Created", value: data.metrics.posts, icon: FileText, featured: true, color: "#A30D70", values: metricValues.posts },
-    { key: "images", label: "Images / Artwork", value: data.metrics.images, icon: ImageIcon, color: "#8B45DC", values: metricValues.images },
-    { key: "reels", label: "Reels Generated", value: data.metrics.reels, icon: Video, color: "#F0449C", values: metricValues.reels },
-    { key: "calendars", label: "Calendars Created", value: data.metrics.calendars, icon: CalendarDays, color: "#F97316", values: metricValues.calendars },
-    { key: "ai", label: "AI Generations / Edits", value: data.metrics.aiGenerationsEdits, icon: Sparkles, color: "#3974F6", values: timeline.map((item) => item.images + item.reels) },
-    { key: "social", label: "Social Activity", value: data.metrics.socialActivity, icon: Share2, color: "#9139CC", values: timeline.map((item) => item.posts + item.reels) },
+    { key: "posts", label: "Posts Created", value: data.metrics.posts, icon: FileText, featured: true, color: "#A30D70" },
+    { key: "reels", label: "Reels Created", value: data.metrics.reels, icon: Video, color: "#F0449C" },
+    { key: "images", label: "Images / Artwork", value: data.metrics.images, icon: ImageIcon, color: "#8B45DC" },
+    { key: "calendars", label: "Campaign Calendars", value: data.metrics.calendars, icon: CalendarDays, color: "#F97316" },
   ];
-  const dateRangeLabel = filters.dateFrom || filters.dateTo
-    ? `${formatFilterDate(filters.dateFrom) || "Start"} – ${formatFilterDate(filters.dateTo) || "Today"}`
-    : "All time";
   const reportUserId = data.user.id;
 
   function exportReport() {
@@ -585,18 +412,15 @@ export default function UserAnalyticsPage() {
           </div>
           <div className="flex w-full flex-wrap items-center justify-start gap-2 sm:w-auto sm:justify-end">
             <Link href={`/dashboard/users/${params.id}`} className="flex h-8 items-center gap-1.5 rounded-lg border bg-white px-3 text-[10px] font-semibold" style={{ borderColor: DASH.border, color: DASH.heading }}><ArrowLeft className="h-3.5 w-3.5" />Back to profile</Link>
-            <span className="hidden h-8 items-center gap-2 rounded-lg border bg-white px-3 text-[10px] sm:flex" style={{ borderColor: DASH.border, color: DASH.heading }}><CalendarDays className="h-3.5 w-3.5" />{dateRangeLabel}</span>
             <button type="button" onClick={exportReport} className="flex h-8 items-center gap-2 rounded-lg px-3 text-[10px] font-semibold text-white shadow-sm" style={{ background: "linear-gradient(135deg,#731050,#A40A74)" }}><Download className="h-3.5 w-3.5" />Export</button>
           </div>
         </div>
       </section>
 
       <section className={`${PANEL_CLASS} mt-2.5 px-3 py-3 sm:px-4`}>
-        <div className="flex items-center justify-between gap-3"><div className="flex items-center gap-2"><Filter className="h-3.5 w-3.5" style={{ color: DASH.plum }} /><h2 className="text-[11px] font-bold" style={{ color: DASH.heading }}>Filters</h2></div><button type="button" onClick={() => { setFilters(EMPTY_FILTERS); setGalleryPage(1); setActivityPage(1); }} className="flex items-center gap-1 text-[11px] font-semibold hover:underline" style={{ color: DASH.accent }}><RotateCcw className="h-3 w-3" />Reset filters</button></div>
-        <div className="mt-2.5 grid gap-2.5 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-5">
-          <div><span className="text-[11px] font-semibold" style={{ color: DASH.muted }}>Date range</span><div className="mt-1 grid grid-cols-2 gap-1.5"><input aria-label="From date" type="date" value={filters.dateFrom} max={filters.dateTo || undefined} onChange={(event) => updateFilter("dateFrom", event.target.value)} className="h-8 min-w-0 rounded-lg border bg-white px-2 text-[11px] outline-none" style={{ borderColor: DASH.border, color: DASH.heading }} /><input aria-label="To date" type="date" value={filters.dateTo} min={filters.dateFrom || undefined} onChange={(event) => updateFilter("dateTo", event.target.value)} className="h-8 min-w-0 rounded-lg border bg-white px-2 text-[11px] outline-none" style={{ borderColor: DASH.border, color: DASH.heading }} /></div></div>
+        <div className="flex items-center justify-between gap-3"><div className="flex items-center gap-2"><Filter className="h-3.5 w-3.5" style={{ color: DASH.plum }} /><h2 className="text-[11px] font-bold" style={{ color: DASH.heading }}>Content filters</h2></div><button type="button" onClick={() => { setFilters(EMPTY_FILTERS); setGalleryPage(1); }} className="flex items-center gap-1 text-[11px] font-semibold hover:underline" style={{ color: DASH.accent }}><RotateCcw className="h-3 w-3" />Reset filters</button></div>
+        <div className="mt-2.5 grid gap-2.5 sm:grid-cols-3">
           <FilterSelect label="Content type" value={filters.contentType} onChange={(value) => updateFilter("contentType", value)} options={options.contentTypes.map((value) => ({ value, label: titleCase(value) }))} />
-          <FilterSelect label="Activity type" value={filters.activityType} onChange={(value) => updateFilter("activityType", value)} options={options.activityTypes.map((value) => ({ value, label: titleCase(value) }))} />
           <FilterSelect label="Social platform" value={filters.platform} onChange={(value) => updateFilter("platform", value)} options={options.platforms.map((value) => ({ value, label: titleCase(value) }))} />
           <FilterSelect label="Campaign" value={filters.campaignId} onChange={(value) => updateFilter("campaignId", value)} options={options.campaigns.map((item) => ({ value: item.id, label: item.name }))} />
         </div>
@@ -604,44 +428,33 @@ export default function UserAnalyticsPage() {
 
       <Tabs
         value={activeTab}
-        onValueChange={(value) => setActiveTab(value as "overview" | "media" | "activity")}
+        onValueChange={(value) => setActiveTab(value as "overview" | "content")}
         className="mt-2.5 gap-2.5"
       >
         <div className="flex flex-wrap items-center justify-between gap-3">
-          <TabsList className="grid h-10 w-full max-w-[540px] grid-cols-3 rounded-xl bg-[#F4EEF4] p-1">
+          <TabsList className="grid h-10 w-full max-w-[420px] grid-cols-2 rounded-xl bg-[#F4EEF4] p-1">
             <TabsTrigger value="overview" className="text-[11px]">
               <BarChart3 className="h-3.5 w-3.5" />
               Overview
             </TabsTrigger>
-            <TabsTrigger value="media" className="text-[11px]">
+            <TabsTrigger value="content" className="text-[11px]">
               <ImageIcon className="h-3.5 w-3.5" />
-              Media
-            </TabsTrigger>
-            <TabsTrigger value="activity" className="text-[11px]">
-              <Clock3 className="h-3.5 w-3.5" />
-              Activity Timeline
+              Generated Content
             </TabsTrigger>
           </TabsList>
         </div>
 
         <TabsContent value="overview" className="mt-0 space-y-2.5">
-          <div className="grid grid-cols-2 gap-2.5 md:grid-cols-3 xl:grid-cols-6">{metrics.map((metric) => <MetricCard key={metric.key} metric={metric} />)}</div>
+          <div className="grid grid-cols-2 gap-2.5 lg:grid-cols-4">{metrics.map((metric) => <MetricCard key={metric.key} metric={metric} />)}</div>
           <div className="grid items-stretch gap-2.5 lg:grid-cols-3">
-            <ActivityOverview metrics={metrics} />
-            <PlatformDistribution activities={data.activity} gallery={data.gallery} />
-            <TopCampaigns activities={data.activity} gallery={data.gallery} />
+            <ActivityOverview metrics={metrics.slice(0, 3)} />
+            <PlatformDistribution gallery={data.gallery} />
+            <TopCampaigns gallery={data.gallery} />
           </div>
         </TabsContent>
 
-        <TabsContent value="media" className="mt-0">
+        <TabsContent value="content" className="mt-0">
           <ContentGallery data={data} activeType={filters.contentType} onType={(value) => updateFilter("contentType", value)} onPage={setGalleryPage} />
-        </TabsContent>
-
-        <TabsContent value="activity" className="mt-0">
-          <ActivityTimeline data={data} onPage={(page) => {
-            setActivityPage(page);
-            document.getElementById("activity-timeline")?.scrollIntoView({ behavior: "smooth", block: "start" });
-          }} />
         </TabsContent>
       </Tabs>
     </div>
@@ -651,7 +464,6 @@ export default function UserAnalyticsPage() {
 function FilterSelect({ label, value, options, onChange }: { label: string; value: string; options: Array<{ value: string; label: string }>; onChange: (value: string) => void }) {
   const allLabel: Record<string, string> = {
     "Content type": "All content",
-    "Activity type": "All activities",
     "Social platform": "All platforms",
     Campaign: "All campaigns",
   };

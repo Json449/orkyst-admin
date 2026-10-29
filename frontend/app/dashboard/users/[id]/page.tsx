@@ -6,17 +6,13 @@ import { useQuery } from "@tanstack/react-query";
 import { useParams } from "next/navigation";
 import {
   BarChart3,
-  CalendarDays,
   Check,
   ChevronRight,
   Circle,
-  FileText,
-  ImageIcon,
   Mail,
   MoreHorizontal,
   RefreshCw,
   ShieldCheck,
-  Video,
 } from "lucide-react";
 import { DASH } from "@/components/dashboard/theme";
 import { UserPlanPill, UserStatusPill } from "@/components/dashboard/users/user-pills";
@@ -87,19 +83,6 @@ function DetailRow({ label, value }: { label: string; value: React.ReactNode }) 
   );
 }
 
-function UsageCard({ label, value, icon: Icon }: { label: string; value: number; icon: typeof CalendarDays }) {
-  return (
-    <div className="rounded-2xl border bg-gradient-to-b from-white to-[#FCFAFD] p-3.5" style={{ borderColor: DASH.border }}>
-      <span className="flex h-8 w-8 items-center justify-center rounded-lg bg-[#F1E9FF] text-[#7636D1]">
-        <Icon className="h-4 w-4" />
-      </span>
-      <div className="mt-3 text-[25px] font-bold tracking-[-0.04em]" style={{ color: DASH.heading }}>{value}</div>
-      <p className="mt-0.5 text-[12px]" style={{ color: DASH.muted }}>{label}</p>
-      <p className="mt-3 text-[10px] font-medium" style={{ color: DASH.subtle }}>Recorded activity</p>
-    </div>
-  );
-}
-
 const platformStyle: Record<string, { label: string; tone: string; text: string }> = {
   facebook: { label: "f", tone: "#E7F0FF", text: "#1877F2" },
   instagram: { label: "◎", tone: "#FDE8F2", text: "#E1306C" },
@@ -137,12 +120,7 @@ export default function UserDetailPage() {
     );
   }
 
-  const usage = [
-    { label: "Calendars", value: user.activityCounts.calendars, icon: CalendarDays },
-    { label: "Posts", value: user.activityCounts.posts, icon: FileText },
-    { label: "Images", value: user.activityCounts.images, icon: ImageIcon },
-    { label: "Reels", value: user.activityCounts.reels, icon: Video },
-  ];
+  const packageUsage = user.packageUsage?.items ?? [];
   const onboarding = [
     { label: "Account created", complete: true, date: user.createdAt },
     { label: "Email verified", complete: user.isVerified },
@@ -208,9 +186,37 @@ export default function UserDetailPage() {
 
       <div className="mt-4 grid gap-4 xl:grid-cols-[minmax(0,1.75fr)_minmax(360px,1fr)]">
         <div className="space-y-4">
-          <Panel title="Usage overview" action={<span className="rounded-xl border px-3 py-1.5 text-[11px] font-medium" style={{ borderColor: DASH.border, color: DASH.muted }}>Live account totals</span>}>
-            <div className="grid grid-cols-2 gap-3 lg:grid-cols-4">
-              {usage.map(({ label, value, icon }) => <UsageCard key={label} label={label} value={value} icon={icon} />)}
+          <Panel
+            title="Current package usage"
+            action={<span className="rounded-xl bg-[#F4ECFF] px-3 py-1.5 text-[11px] font-bold capitalize text-[#7040D6]">{user.plan} plan</span>}
+          >
+            <div className="mb-4 flex flex-wrap items-center justify-between gap-2 rounded-xl bg-[#FAF8FC] px-3 py-2.5 text-[11px]" style={{ color: DASH.muted }}>
+              <span>Monthly usage period <strong style={{ color: DASH.heading }}>{user.packageUsage?.periodKey || "Current"}</strong></span>
+              <span>Resets {formatDate(user.packageUsage?.nextResetAt)}</span>
+            </div>
+            <div className="grid gap-x-6 gap-y-4 md:grid-cols-2">
+              {packageUsage.map((item) => {
+                const isAtLimit = item.limit > 0 && item.used >= item.limit;
+                return (
+                  <div key={item.key}>
+                    <div className="flex items-center justify-between gap-3 text-[12px]">
+                      <span className="font-semibold" style={{ color: DASH.heading }}>{item.label}</span>
+                      <span className="font-bold" style={{ color: isAtLimit ? "#DC2626" : DASH.heading }}>
+                        {item.used.toLocaleString()} / {item.limit.toLocaleString()}
+                      </span>
+                    </div>
+                    <div className="mt-2 h-2 overflow-hidden rounded-full bg-[#EEEAF3]">
+                      <div
+                        className="h-full rounded-full transition-[width]"
+                        style={{ width: `${item.percentage}%`, backgroundColor: isAtLimit ? "#DC2626" : item.percentage >= 80 ? "#F59E0B" : DASH.plum }}
+                      />
+                    </div>
+                    <p className="mt-1.5 text-[10px]" style={{ color: DASH.muted }}>
+                      {item.remaining.toLocaleString()} remaining this month
+                    </p>
+                  </div>
+                );
+              })}
             </div>
           </Panel>
 

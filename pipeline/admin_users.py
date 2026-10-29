@@ -24,6 +24,87 @@ from pipeline.admin_stats import (
 )
 
 
+# Keep these allowances aligned with backend/src/users/plan.constants.ts in the
+# main Orkyst application. The admin app reads MongoDB directly, so it cannot
+# call the authenticated customer plan-summary endpoint on a user's behalf.
+PLAN_USAGE_LIMITS: dict[str, dict[str, int]] = {
+    "basic": {
+        "calendars": 2,
+        "posts": 30,
+        "aiImageCredits": 3000,
+        "captions": 30,
+        "reels": 6,
+        "brandProfiles": 1,
+    },
+    "pro": {
+        "calendars": 5,
+        "posts": 60,
+        "aiImageCredits": 6000,
+        "captions": 60,
+        "reels": 6,
+        "brandProfiles": 3,
+    },
+}
+
+
+def _package_usage(user: dict[str, Any]) -> dict[str, Any]:
+    """Build the current billing-period usage shown on the admin profile."""
+    now = datetime.now(timezone.utc)
+    current_period_key = f"{now.year}-{now.month:02d}"
+    next_reset_at = (
+        datetime(now.year + 1, 1, 1, tzinfo=timezone.utc)
+        if now.month == 12
+        else datetime(now.year, now.month + 1, 1, tzinfo=timezone.utc)
+    )
+    plan = str(user.get("plan") or "basic").strip().lower()
+    normalized_plan = "pro" if plan in {"pro", "enterprise"} else "basic"
+    limits = PLAN_USAGE_LIMITS[normalized_plan]
+    stored_period_key = str(user.get("usagePeriodKey") or "")
+    # Orkyst resets counters lazily. A stale period must read as zero in an
+    # admin view even when the customer has not logged in since month-end.
+    is_current_period = not stored_period_key or stored_period_key == current_period_key
+
+    def current_counter(field: str) -> int:
+        return int(user.get(field, 0) or 0) if is_current_period else 0
+
+    counters = {
+        "calendars": current_counter("calendarsGeneratedThisMonth"),
+        "posts": current_counter("socialPostsGeneratedThisMonth"),
+        "aiImageCredits": current_counter("aiImageCreditsUsedThisMonth"),
+        "captions": current_counter("captionsGeneratedThisMonth"),
+        "reels": current_counter("reelUsageThisMonth"),
+        "brandProfiles": current_counter("brandProfilesCreatedThisMonth"),
+    }
+    labels = {
+        "calendars": "Content calendars",
+        "posts": "Social posts",
+        "aiImageCredits": "AI image credits",
+        "captions": "AI captions",
+        "reels": "Short-form reels",
+        "brandProfiles": "Brand profiles",
+    }
+    items = []
+    for key, label in labels.items():
+        used = counters[key]
+        limit = limits[key]
+        items.append(
+            {
+                "key": key,
+                "label": label,
+                "used": used,
+                "limit": limit,
+                "remaining": max(limit - used, 0),
+                "percentage": min(round((used / limit) * 100), 100) if limit else 0,
+            }
+        )
+    return {
+        "periodKey": current_period_key,
+        "resetAt": user.get("packageUsageResetAt"),
+        "nextResetAt": next_reset_at.isoformat(),
+        "items": items,
+    }
+
+
 def _user_id(user: dict[str, Any]) -> str:
     return str(user.get("id") or user.get("_id") or "")
 
@@ -84,6 +165,7 @@ def _serialize_user(user: dict[str, Any]) -> dict[str, Any]:
         "subscriptionCurrentPeriodEnd": user.get("subscriptionCurrentPeriodEnd"),
         "connectedPlatforms": _connected_platforms(user),
         "activityCounts": _activity(user),
+        "packageUsage": _package_usage(user),
     }
 
 
@@ -204,6 +286,15 @@ def _list_mongo_admin_users(
         "antLastSsoAt": 1,
         "subscriptionCurrentPeriodStart": 1,
         "subscriptionCurrentPeriodEnd": 1,
+        "usagePeriodKey": 1,
+        "packageUsageResetAt": 1,
+        "calendarsGeneratedThisMonth": 1,
+        "socialPostsGeneratedThisMonth": 1,
+        "imagesGeneratedThisMonth": 1,
+        "aiImageCreditsUsedThisMonth": 1,
+        "captionsGeneratedThisMonth": 1,
+        "brandProfilesCreatedThisMonth": 1,
+        "reelUsageThisMonth": 1,
         "connectedPlatforms": 1,
         "facebookConnectionStatus": 1,
         "instagramConnectionStatus": 1,
@@ -484,6 +575,10 @@ def reset_admin_user_package_usage(user_id: str, *, code: str) -> dict[str, Any]
                 "calendarsGeneratedThisMonth": 0,
                 "socialPostsGeneratedThisMonth": 0,
                 "imagesGeneratedThisMonth": 0,
+                "aiImageCreditsUsedThisMonth": 0,
+                "aiImageGenerationCreditsUsedThisMonth": 0,
+                "aiImageRegenerationCreditsUsedThisMonth": 0,
+                "aiImageEditingCreditsUsedThisMonth": 0,
                 "captionsGeneratedThisMonth": 0,
                 "brandProfilesCreatedThisMonth": 0,
                 "reelUsageThisMonth": 0,

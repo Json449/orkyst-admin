@@ -47,6 +47,19 @@ export type AdminUser = {
     images: number;
     reels: number;
   };
+  packageUsage: {
+    periodKey: string;
+    resetAt?: string | null;
+    nextResetAt: string;
+    items: Array<{
+      key: "calendars" | "posts" | "aiImageCredits" | "captions" | "reels" | "brandProfiles" | string;
+      label: string;
+      used: number;
+      limit: number;
+      remaining: number;
+      percentage: number;
+    }>;
+  };
 };
 
 export type AdminUsersData = {
@@ -213,6 +226,38 @@ async function postJson<T>(path: string, body?: unknown): Promise<T> {
     method: "POST",
     headers: { "Content-Type": "application/json" },
     body: body ? JSON.stringify(body) : undefined,
+    credentials: "include",
+  });
+
+  if (!response.ok) {
+    const payload = await response.json().catch(() => null);
+    throw new Error(payload?.detail || `Request failed: ${response.status} ${response.statusText}`);
+  }
+
+  return response.json() as Promise<T>;
+}
+
+async function deleteJson<T>(path: string, body?: unknown): Promise<T> {
+  const response = await fetch(`${API_BASE}${path}`, {
+    method: "DELETE",
+    credentials: "include",
+    headers: body === undefined ? undefined : { "Content-Type": "application/json" },
+    body: body === undefined ? undefined : JSON.stringify(body),
+  });
+
+  if (!response.ok) {
+    const payload = await response.json().catch(() => null);
+    throw new Error(payload?.detail || `Request failed: ${response.status} ${response.statusText}`);
+  }
+
+  return response.json() as Promise<T>;
+}
+
+async function putJson<T>(path: string, body: unknown): Promise<T> {
+  const response = await fetch(`${API_BASE}${path}`, {
+    method: "PUT",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify(body),
     credentials: "include",
   });
 
@@ -393,6 +438,49 @@ export type LoginData = {
   };
 };
 
+export type AdminTemplateCategory = string;
+
+export type AdminTemplateCategoryItem = {
+  id: string;
+  name: string;
+  templateCount: number;
+  sortOrder: number;
+  subcategories: AdminTemplateSubcategoryItem[];
+  createdAt: string;
+};
+
+export type AdminTemplateSubcategoryItem = {
+  id: string;
+  name: string;
+  imageUrl: string;
+  templateCount: number;
+  createdAt: string;
+};
+
+export type AdminTemplateAssignment = {
+  categoryId: string;
+  subcategoryIds: string[];
+};
+
+export type AdminTemplate = {
+  id: string;
+  name: string;
+  category: AdminTemplateCategory;
+  description: string;
+  taxonomyAssignments: AdminTemplateAssignment[];
+  imageUrl: string;
+  createdAt: string;
+};
+
+export type AdminTemplatesData = {
+  items: AdminTemplate[];
+  categories: AdminTemplateCategory[];
+};
+
+export type AdminTemplateCategoriesData = {
+  items: AdminTemplateCategoryItem[];
+};
+
 export function fetchCTA() {
   return getJson<CTAData>("/api/analytics/cta");
 }
@@ -411,6 +499,88 @@ export function fetchRecommendations() {
 
 export function fetchAdminUserStats() {
   return getJson<AdminUserStatsData>("/api/admin/user-stats");
+}
+
+export function fetchAdminTemplates() {
+  return getJson<AdminTemplatesData>("/api/admin/templates");
+}
+
+export function fetchAdminTemplateCategories() {
+  return getJson<AdminTemplateCategoriesData>("/api/admin/template-categories");
+}
+
+export function createAdminTemplateCategory(name: string, code: string) {
+  return postJson<AdminTemplateCategoryItem>("/api/admin/template-categories", { name, code });
+}
+
+export function updateAdminTemplateCategory(categoryId: string, name: string, code: string) {
+  return putJson<AdminTemplateCategoryItem>(
+    `/api/admin/template-categories/${encodeURIComponent(categoryId)}`,
+    { name, code },
+  );
+}
+
+export function deleteAdminTemplateCategory(categoryId: string, code: string) {
+  return deleteJson<{ status: number }>(
+    `/api/admin/template-categories/${encodeURIComponent(categoryId)}`,
+    { code },
+  );
+}
+
+export function createAdminTemplateSubcategory(categoryId: string, payload: { name: string; imageData?: string; code: string }) {
+  return postJson<AdminTemplateSubcategoryItem>(
+    `/api/admin/template-categories/${encodeURIComponent(categoryId)}/subcategories`,
+    payload,
+  );
+}
+
+export function updateAdminTemplateSubcategory(categoryId: string, subcategoryId: string, payload: { name: string; imageData?: string; code: string }) {
+  return putJson<AdminTemplateSubcategoryItem>(
+    `/api/admin/template-categories/${encodeURIComponent(categoryId)}/subcategories/${encodeURIComponent(subcategoryId)}`,
+    payload,
+  );
+}
+
+export function deleteAdminTemplateSubcategory(categoryId: string, subcategoryId: string, code: string) {
+  return deleteJson<{ status: number }>(
+    `/api/admin/template-categories/${encodeURIComponent(categoryId)}/subcategories/${encodeURIComponent(subcategoryId)}`,
+    { code },
+  );
+}
+
+export function uploadAdminTemplate(payload: {
+  name: string;
+  description?: string;
+  category?: AdminTemplateCategory;
+  assignments?: AdminTemplateAssignment[];
+  imageData: string;
+  code: string;
+}) {
+  return postJson<AdminTemplate>("/api/admin/templates", payload);
+}
+
+export function uploadAdminTemplates(payload: {
+  category?: AdminTemplateCategory;
+  assignments: AdminTemplateAssignment[];
+  items: Array<{ name: string; description?: string; imageData: string }>;
+  code: string;
+}) {
+  return postJson<{ items: AdminTemplate[] }>("/api/admin/templates/batch", payload);
+}
+
+export function deleteAdminTemplate(templateId: string, code: string) {
+  return deleteJson<{ status: number }>(`/api/admin/templates/${encodeURIComponent(templateId)}`, { code });
+}
+
+export function updateAdminTemplate(templateId: string, payload: {
+  name: string;
+  description?: string;
+  category?: AdminTemplateCategory;
+  assignments?: AdminTemplateAssignment[];
+  imageData?: string;
+  code: string;
+}) {
+  return putJson<AdminTemplate>(`/api/admin/templates/${encodeURIComponent(templateId)}`, payload);
 }
 
 export function fetchAdminRecentActivity(limit = 20) {

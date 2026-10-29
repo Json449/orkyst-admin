@@ -206,6 +206,8 @@ def _load_users_from_mongo(uri: str) -> dict[str, Any]:
         "antLastSsoAt": 1,
         "subscriptionCurrentPeriodStart": 1,
         "subscriptionCurrentPeriodEnd": 1,
+        "usagePeriodKey": 1,
+        "packageUsageResetAt": 1,
         "connectedPlatforms": 1,
         "facebookConnectionStatus": 1,
         "instagramConnectionStatus": 1,
@@ -214,6 +216,9 @@ def _load_users_from_mongo(uri: str) -> dict[str, Any]:
         "calendarsGeneratedThisMonth": 1,
         "socialPostsGeneratedThisMonth": 1,
         "imagesGeneratedThisMonth": 1,
+        "aiImageCreditsUsedThisMonth": 1,
+        "captionsGeneratedThisMonth": 1,
+        "brandProfilesCreatedThisMonth": 1,
         "reelUsageThisMonth": 1,
     }
     users = list(client[db_name]["users"].find({}, projection))

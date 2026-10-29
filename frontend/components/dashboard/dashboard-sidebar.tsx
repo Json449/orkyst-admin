@@ -5,6 +5,7 @@ import { usePathname } from "next/navigation";
 import { useState } from "react";
 import {
   Building2,
+  Images,
   LayoutGrid,
   Menu,
   Users,
@@ -25,6 +26,7 @@ const PLATFORM_NAV: NavItem[] = [
   { label: "Overview", icon: LayoutGrid, href: "/dashboard" },
   { label: "Organizations", icon: Building2, href: "/dashboard/organizations" },
   { label: "Users", icon: Users, href: "/dashboard/users" },
+  { label: "Templates", icon: Images, href: "/dashboard/templates" },
 ];
 const ONBOARDING_NAV: NavItem[] = [{ label: "Email template", icon: Mail, href: "/dashboard/onboarding" }];
 
