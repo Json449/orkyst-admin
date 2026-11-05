@@ -105,6 +105,39 @@ export type AdminUserDetail = AdminUser & {
   }>;
 };
 
+export type CommandCenterOrganization = {
+  id: string;
+  name: string;
+  slug: string;
+  active: boolean;
+  franchiseCount: number;
+};
+
+export type CommandCenterUser = {
+  id: string;
+  email: string;
+  fullname: string;
+  company: string;
+  avatar?: string | null;
+  createdAt?: string | null;
+  commandCenters: CommandCenterOrganization[];
+};
+
+export type CommandCenterFranchise = {
+  id: string;
+  name: string;
+  region: string;
+  country: string;
+  businessCategory: string;
+  ownerName: string;
+  ownerEmail: string;
+  status: string;
+};
+
+export type CommandCenterFranchises = CommandCenterOrganization & {
+  franchises: CommandCenterFranchise[];
+};
+
 export type AdminUserAnalyticsAsset = {
   id: string;
   title: string;
@@ -675,6 +708,28 @@ export function fetchAdminOrganizations(filters: {
 
 export function fetchAdminOrganization(slug: string) {
   return getJson<AdminOrganizationDetailData>(`/api/admin/organizations/${encodeURIComponent(slug)}`);
+}
+
+export function fetchCommandCenterUsers(query = "") {
+  const params = new URLSearchParams();
+  if (query) params.set("query", query);
+  return getJson<{ items: CommandCenterUser[] }>(`/api/admin/command-centers?${params.toString()}`);
+}
+
+export function createCommandCenter(userId: string, payload: { businessName: string; slug?: string; code: string }) {
+  return postJson<CommandCenterOrganization>(`/api/admin/command-centers/users/${encodeURIComponent(userId)}`, payload);
+}
+
+export function fetchCommandCenterFranchises(userId: string) {
+  return getJson<{ items: CommandCenterFranchises[] }>(`/api/admin/command-centers/users/${encodeURIComponent(userId)}/franchises`);
+}
+
+export function setCommandCenterStatus(userId: string, payload: { organizationId: string; active: boolean; code: string }) {
+  return postJson<CommandCenterOrganization>(`/api/admin/command-centers/users/${encodeURIComponent(userId)}/status`, payload);
+}
+
+export function deleteCommandCenter(userId: string, payload: { organizationId: string; code: string }) {
+  return postJson<{ status: number; deleted: boolean }>(`/api/admin/command-centers/users/${encodeURIComponent(userId)}/delete`, payload);
 }
 
 export function login(email: string, password: string) {

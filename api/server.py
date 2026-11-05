@@ -57,6 +57,13 @@ from pipeline.admin_notifications import send_account_status_email, send_onboard
 from pipeline.admin_user_analytics import get_admin_user_analytics
 from pipeline.admin_user_activity_detail import get_admin_user_activity_detail
 from pipeline.admin_organizations import get_admin_organization, list_admin_organizations
+from pipeline.admin_command_centers import (
+    create_command_center,
+    delete_command_center,
+    list_command_center_franchises,
+    list_command_center_users,
+    set_command_center_active,
+)
 from pipeline.admin_recent_activity import list_admin_recent_activity
 from pipeline.admin_templates import (
     create_admin_template,
@@ -156,6 +163,23 @@ class AccountStatusPayload(BaseModel):
 
 
 class PackageUsageResetPayload(BaseModel):
+    code: str
+
+
+class CommandCenterCreatePayload(BaseModel):
+    businessName: str
+    slug: str | None = None
+    code: str
+
+
+class CommandCenterStatusPayload(BaseModel):
+    organizationId: str
+    active: bool
+    code: str
+
+
+class CommandCenterDeletePayload(BaseModel):
+    organizationId: str
     code: str
 
 class OnboardingEmailPayload(BaseModel):
@@ -720,6 +744,74 @@ def admin_user_detail(request: Request, user_id: str):
     if not user:
         raise HTTPException(status_code=404, detail="User not found")
     return user
+
+
+@app.get("/api/admin/command-centers")
+def admin_command_centers(request: Request, query: str = Query(default="")):
+    _require_admin_session(request)
+    try:
+        return {"items": list_command_center_users(query=query)}
+    except RuntimeError as exc:
+        raise HTTPException(status_code=503, detail=str(exc)) from exc
+
+
+@app.post("/api/admin/command-centers/users/{user_id}")
+def admin_create_command_center(request: Request, user_id: str, payload: CommandCenterCreatePayload):
+    _require_admin_session(request)
+    if payload.code.strip() != _admin_account_status_code():
+        raise HTTPException(status_code=403, detail="Invalid admin security code")
+    try:
+        return create_command_center(user_id, payload.businessName, payload.slug)
+    except LookupError as exc:
+        raise HTTPException(status_code=404, detail=str(exc)) from exc
+    except ValueError as exc:
+        raise HTTPException(status_code=400, detail=str(exc)) from exc
+    except RuntimeError as exc:
+        raise HTTPException(status_code=503, detail=str(exc)) from exc
+
+
+@app.get("/api/admin/command-centers/users/{user_id}/franchises")
+def admin_command_center_franchises(request: Request, user_id: str):
+    _require_admin_session(request)
+    try:
+        return {"items": list_command_center_franchises(user_id)}
+    except LookupError as exc:
+        raise HTTPException(status_code=404, detail=str(exc)) from exc
+    except ValueError as exc:
+        raise HTTPException(status_code=400, detail=str(exc)) from exc
+    except RuntimeError as exc:
+        raise HTTPException(status_code=503, detail=str(exc)) from exc
+
+
+@app.post("/api/admin/command-centers/users/{user_id}/status")
+def admin_command_center_status(request: Request, user_id: str, payload: CommandCenterStatusPayload):
+    _require_admin_session(request)
+    if payload.code.strip() != _admin_account_status_code():
+        raise HTTPException(status_code=403, detail="Invalid admin security code")
+    try:
+        return set_command_center_active(user_id, payload.organizationId, payload.active)
+    except LookupError as exc:
+        raise HTTPException(status_code=404, detail=str(exc)) from exc
+    except ValueError as exc:
+        raise HTTPException(status_code=400, detail=str(exc)) from exc
+    except RuntimeError as exc:
+        raise HTTPException(status_code=503, detail=str(exc)) from exc
+
+
+@app.post("/api/admin/command-centers/users/{user_id}/delete")
+def admin_delete_command_center(request: Request, user_id: str, payload: CommandCenterDeletePayload):
+    _require_admin_session(request)
+    if payload.code.strip() != _admin_account_status_code():
+        raise HTTPException(status_code=403, detail="Invalid admin security code")
+    try:
+        delete_command_center(user_id, payload.organizationId)
+        return {"status": 200, "deleted": True}
+    except LookupError as exc:
+        raise HTTPException(status_code=404, detail=str(exc)) from exc
+    except ValueError as exc:
+        raise HTTPException(status_code=400, detail=str(exc)) from exc
+    except RuntimeError as exc:
+        raise HTTPException(status_code=503, detail=str(exc)) from exc
 
 @app.post("/api/admin/onboarding/send-email")
 def admin_send_onboarding_email(request: Request, payload: OnboardingEmailPayload):
