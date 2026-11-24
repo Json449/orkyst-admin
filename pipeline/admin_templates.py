@@ -76,6 +76,17 @@ def _taxonomy_meta_collection():
     return _mongo_client()[database_name]["ad_template_taxonomy_meta"]
 
 
+def _touch_template_catalog_revision() -> str:
+    """Invalidate customer template caches after a successful admin mutation."""
+    revision = uuid4().hex
+    _taxonomy_meta_collection().update_one(
+        {"_id": "template-catalog"},
+        {"$set": {"revision": revision, "updatedAt": datetime.now(timezone.utc)}},
+        upsert=True,
+    )
+    return revision
+
+
 @lru_cache(maxsize=1)
 def _legacy_mongo_client() -> MongoClient | None:
     legacy_uri = os.getenv("ORKYST_TEMPLATE_LEGACY_MONGO_URI", "").strip()
@@ -316,6 +327,7 @@ def create_template_category(*, name: str, priority: int = 0, created_by: str | 
         _category_collection().insert_one(document)
     except DuplicateKeyError as exc:
         raise ValueError("A template category with this name already exists") from exc
+    _touch_template_catalog_revision()
     return _serialize_category(document)
 
 
@@ -345,6 +357,7 @@ def update_template_category(*, category_id: str, name: str, priority: int | Non
             {"category": normalized}, {"$set": {"category": old_name}}
         )
         raise
+    _touch_template_catalog_revision()
     return _serialize_category({**document, "name": normalized, "normalizedName": normalized.casefold(), **({"priority": max(0, int(priority))} if priority is not None else {})})
 
 
@@ -378,6 +391,7 @@ def create_template_subcategory(
     _category_collection().update_one(
         {"id": category_id}, {"$push": {"subcategories": subcategory}}
     )
+    _touch_template_catalog_revision()
     return next(item for item in _serialize_category({**category, "subcategories": [*category.get("subcategories", []), subcategory]})["subcategories"] if item["id"] == subcategory_id)
 
 
@@ -407,6 +421,7 @@ def update_template_subcategory(
     _category_collection().update_one(
         {"id": category_id}, {"$set": {"subcategories": subcategories}}
     )
+    _touch_template_catalog_revision()
     return next(item for item in _serialize_category({**category, "subcategories": subcategories})["subcategories"] if item["id"] == subcategory_id)
 
 
@@ -429,6 +444,8 @@ def delete_template_subcategory(*, category_id: str, subcategory_id: str) -> boo
             _delete_from_cloudinary(public_id)
         except Exception:
             logger.exception("Could not remove subcategory image %s", public_id)
+    if result.modified_count:
+        _touch_template_catalog_revision()
     return bool(result.modified_count)
 
 
@@ -450,6 +467,7 @@ def delete_template_category(category_id: str) -> bool:
                 _delete_from_cloudinary(public_id)
             except Exception:
                 logger.exception("Could not remove subcategory image %s", public_id)
+        _touch_template_catalog_revision()
     return deleted
 
 
@@ -635,6 +653,7 @@ def create_admin_template(
         except Exception:
             pass
         raise RuntimeError(f"Template metadata could not be saved to MongoDB: {exc}") from exc
+    _touch_template_catalog_revision()
     return _serialize_template(document)
 
 
@@ -724,6 +743,7 @@ def update_admin_template(
         update_fields.update({"imageUrl": image_url, "cloudinaryPublicId": public_id})
 
     _template_collection().update_one({"id": template_id}, {"$set": update_fields})
+    _touch_template_catalog_revision()
     return _serialize_template({**document, **update_fields})
 
 
@@ -752,4 +772,5 @@ def delete_admin_template(template_id: str) -> bool:
                 template_id,
                 public_id,
             )
+    _touch_template_catalog_revision()
     return True
